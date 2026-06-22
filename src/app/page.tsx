@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Clock3, LayoutGrid, BarChart3 } from "lucide-react"
 
+import { BrandMark } from "@/components/brand/brand-mark"
 import { Button } from "@/components/ui/button"
 
 const highlights = [
@@ -28,12 +29,8 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#e8f0ff,transparent_38%),radial-gradient(circle_at_top_right,#f3efe7,transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_55%,#ffffff_100%)] text-slate-950">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-6 lg:px-10">
-        <header className="flex items-center justify-between rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_10px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
-          <div>
-            <p className="text-sm font-semibold tracking-[0.25em] text-slate-500 uppercase">
-              Acadex
-            </p>
-          </div>
+        <header className="flex items-center justify-between rounded-full border border-emerald-100/80 bg-white/70 px-5 py-3 shadow-[0_10px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
+          <BrandMark showLabel subtitle="Student productivity workspace" />
           <div className="flex items-center gap-3">
             <Link href="/login">
               <Button variant="ghost" size="sm">

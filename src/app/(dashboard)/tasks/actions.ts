@@ -151,3 +151,31 @@ export async function deleteTask(formData: FormData) {
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
 }
+
+export async function setTaskCompletion(formData: FormData) {
+  const supabase = await getAuthedSupabase()
+  const userId = await getAuthedUserId(supabase)
+  const taskId = String(formData.get("task_id") ?? "")
+  const completed = String(formData.get("completed") ?? "") === "true"
+
+  if (!taskId) {
+    throw new Error("Task id is required.")
+  }
+
+  await ensureTaskOwnership(supabase, taskId, userId)
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      status: completed ? "done" : "todo",
+    })
+    .eq("id", taskId)
+    .eq("user_id", userId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath("/tasks")
+  revalidatePath("/dashboard")
+}

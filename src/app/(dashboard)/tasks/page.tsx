@@ -1,14 +1,41 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { CalendarDays, PencilLine, Save, Trash2 } from "lucide-react"
+import Link from "next/link"
+import { PencilLine, Save, Search, X } from "lucide-react"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getSupabaseClaims } from "@/lib/supabase/session"
-import { parseTaskTags, formatTaskPriority, formatTaskStatus, TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS } from "@/lib/tasks"
+import {
+  formatTaskPriority,
+  formatTaskStatus,
+  TASK_PRIORITY_OPTIONS,
+  TASK_STATUS_OPTIONS,
+} from "@/lib/tasks"
+import { Button } from "@/components/ui/button"
+import { TaskBoard } from "@/components/tasks/task-board"
 
-import { createTask, deleteTask, updateTask } from "./actions"
+import { createTask, deleteTask, setTaskCompletion, updateTask } from "./actions"
 
-async function getTasksPageData() {
+type TasksSearchParams = {
+  q?: string
+  status?: string
+  tag?: string
+}
+
+function buildTasksHref(current: TasksSearchParams, next: Partial<TasksSearchParams> = {}) {
+  const query = {
+    ...current,
+    ...next,
+  }
+
+  const cleanedQuery = Object.fromEntries(
+    Object.entries(query).filter(([, value]) => typeof value === "string" && value.trim().length > 0),
+  )
+
+  return Object.keys(cleanedQuery).length > 0 ? { pathname: "/tasks", query: cleanedQuery } : "/tasks"
+}
+
+async function getTasksPageData(searchParams: TasksSearchParams) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {
@@ -37,19 +64,49 @@ async function getTasksPageData() {
     throw new Error(tasksResult.error.message)
   }
 
+  const allTasks = tasksResult.data ?? []
+  const searchTerm = searchParams.q?.trim().toLowerCase() ?? ""
+  const filteredTasks = allTasks.filter((task) => {
+    const titleMatches = !searchTerm || task.title.toLowerCase().includes(searchTerm)
+    const tagMatchesBySearch =
+      !searchTerm ||
+      (Array.isArray(task.tags) &&
+        task.tags.some((tag) => tag.toLowerCase().includes(searchTerm)))
+    const statusMatches = !searchParams.status || task.status === searchParams.status
+    const tagMatches =
+      !searchParams.tag ||
+      (Array.isArray(task.tags) && task.tags.includes(searchParams.tag.toLowerCase()))
+
+    return titleMatches && tagMatchesBySearch && statusMatches && tagMatches
+  })
+
   return {
-    tasks: tasksResult.data ?? [],
+    allTasks,
+    tasks: filteredTasks,
   }
 }
 
-export default async function TasksPage() {
-  const { tasks } = await getTasksPageData()
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<TasksSearchParams>
+}) {
+  const resolvedSearchParams = await searchParams
+  const { allTasks, tasks } = await getTasksPageData(resolvedSearchParams)
+  const activeFilterCount = [
+    resolvedSearchParams.q?.trim(),
+    resolvedSearchParams.status,
+    resolvedSearchParams.tag,
+  ].filter(Boolean).length
+  const uniqueTags = Array.from(
+    new Set(allTasks.flatMap((task) => (Array.isArray(task.tags) ? task.tags : []))),
+  ).sort()
 
   const taskCounts = {
-    total: tasks.length,
-    todo: tasks.filter((task) => task.status === "todo").length,
-    inProgress: tasks.filter((task) => task.status === "in_progress").length,
-    done: tasks.filter((task) => task.status === "done").length,
+    total: allTasks.length,
+    todo: allTasks.filter((task) => task.status === "todo").length,
+    inProgress: allTasks.filter((task) => task.status === "in_progress").length,
+    done: allTasks.filter((task) => task.status === "done").length,
   }
 
   return (
@@ -81,12 +138,78 @@ export default async function TasksPage() {
             <p className="mt-3 text-3xl font-semibold">{taskCounts.done}</p>
           </article>
         </div>
+
+        <div className="mt-6 space-y-4">
+          <form action="/tasks" method="get" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                name="q"
+                defaultValue={resolvedSearchParams.q ?? ""}
+                placeholder="Search by title or tag"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 pl-11 text-sm outline-none transition focus:border-foreground"
+              />
+              {resolvedSearchParams.status ? (
+                <input type="hidden" name="status" value={resolvedSearchParams.status} />
+              ) : null}
+              {resolvedSearchParams.tag ? <input type="hidden" name="tag" value={resolvedSearchParams.tag} /> : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="submit" variant="outline" className="w-full lg:w-auto">
+                Search
+              </Button>
+              {activeFilterCount > 0 ? (
+                <Button asChild variant="ghost" className="w-full lg:w-auto">
+                  <Link href="/tasks">
+                    <X className="size-4" />
+                    Clear filters
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          </form>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border px-3 py-1 text-xs font-medium uppercase text-muted-foreground">
+              {activeFilterCount} active filter{activeFilterCount === 1 ? "" : "s"}
+            </span>
+            <Button
+              asChild
+              variant={!resolvedSearchParams.status && !resolvedSearchParams.tag ? "default" : "outline"}
+              size="sm"
+            >
+              <Link href="/tasks">All</Link>
+            </Button>
+            {TASK_STATUS_OPTIONS.map((status) => (
+              <Button
+                key={status}
+                asChild
+                variant={resolvedSearchParams.status === status ? "default" : "outline"}
+                size="sm"
+              >
+                <Link href={buildTasksHref(resolvedSearchParams, { status })}>
+                  {formatTaskStatus(status)}
+                </Link>
+              </Button>
+            ))}
+            {uniqueTags.slice(0, 8).map((tag) => (
+              <Button
+                key={tag}
+                asChild
+                variant={resolvedSearchParams.tag === tag ? "default" : "outline"}
+                size="sm"
+              >
+                <Link href={buildTasksHref(resolvedSearchParams, { tag })}>#{tag}</Link>
+              </Button>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <form
           action={createTask}
-          className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm"
+          className="space-y-4 rounded-[2rem] border border-border/60 bg-card/70 p-6 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
         >
           <div>
             <h2 className="inline-flex items-center gap-2 text-xl font-semibold">
@@ -195,171 +318,12 @@ export default async function TasksPage() {
           </button>
         </form>
 
-        <section className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
-          <div>
-            <h2 className="text-xl font-semibold">Tasks</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {tasks.length} task{tasks.length === 1 ? "" : "s"} found
-            </p>
-          </div>
-
-          <div className="grid gap-4">
-            {tasks.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-sm text-muted-foreground">
-                No tasks yet. Add your first task on the left.
-              </div>
-            ) : (
-              tasks.map((task) => {
-                const tagList = Array.isArray(task.tags) ? task.tags : parseTaskTags(task.tags ?? "")
-
-                return (
-                  <article key={task.id} className="rounded-2xl border border-border p-4">
-                    <form
-                      action={updateTask}
-                      className="grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.8fr)_minmax(0,1.5fr)_minmax(8rem,9rem)_minmax(9rem,10rem)_auto]"
-                    >
-                      <input type="hidden" name="task_id" value={task.id} />
-
-                      <div>
-                        <label className="mb-2 block text-xs font-medium uppercase text-muted-foreground">
-                          Task
-                        </label>
-                        <input
-                          name="title"
-                          defaultValue={task.title}
-                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-medium uppercase text-muted-foreground">
-                          Description
-                        </label>
-                        <input
-                          name="description"
-                          defaultValue={task.description ?? ""}
-                          placeholder="Optional notes"
-                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-medium uppercase text-muted-foreground">
-                          Tags
-                        </label>
-                        <input
-                          name="tags"
-                          defaultValue={tagList.join(", ")}
-                          placeholder="thesis, sql"
-                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-medium uppercase text-muted-foreground">
-                          Due date
-                        </label>
-                        <input
-                          name="due_date"
-                          type="date"
-                          defaultValue={task.due_date ?? ""}
-                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-medium uppercase text-muted-foreground">
-                          Priority
-                        </label>
-                        <select
-                          name="priority"
-                          defaultValue={task.priority}
-                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                        >
-                          {TASK_PRIORITY_OPTIONS.map((priority) => (
-                            <option key={priority} value={priority}>
-                              {formatTaskPriority(priority)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-medium uppercase text-muted-foreground">
-                          Status
-                        </label>
-                        <select
-                          name="status"
-                          defaultValue={task.status}
-                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                        >
-                          {TASK_STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status}>
-                              {formatTaskStatus(status)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="flex items-end gap-2">
-                        <button
-                          type="submit"
-                          className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-                        >
-                          <Save className="size-4" />
-                          Save
-                        </button>
-                      </div>
-                    </form>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-border px-3 py-1 text-xs font-medium uppercase text-muted-foreground">
-                          {formatTaskStatus(task.status)}
-                        </span>
-                        <span className="rounded-full border border-border px-3 py-1 text-xs font-medium uppercase text-muted-foreground">
-                          {formatTaskPriority(task.priority)}
-                        </span>
-                        {tagList.length > 0 ? (
-                          tagList.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
-                            >
-                              #{tag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-                            No tags
-                          </span>
-                        )}
-                        {task.due_date ? (
-                          <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                            <CalendarDays className="size-4" />
-                            {task.due_date}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <form action={deleteTask}>
-                        <input type="hidden" name="task_id" value={task.id} />
-                        <button
-                          type="submit"
-                          className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10"
-                        >
-                          <Trash2 className="size-4" />
-                          Delete
-                        </button>
-                      </form>
-                    </div>
-                  </article>
-                )
-              })
-            )}
-          </div>
-        </section>
+        <TaskBoard
+          tasks={tasks}
+          onDeleteTask={deleteTask}
+          onUpdateTask={updateTask}
+          onSetTaskCompletion={setTaskCompletion}
+        />
       </section>
     </main>
   )

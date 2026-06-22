@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { BarChart3, LayoutDashboard, NotebookTabs, Settings2, TimerReset } from "lucide-react"
 
+import { BrandMark } from "@/components/brand/brand-mark"
 import { Button } from "@/components/ui/button"
 import { SignOutButton } from "@/components/auth/sign-out-button"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
@@ -22,21 +23,17 @@ export function DashboardNavbar() {
 
   return (
     <>
-      <aside className="hidden min-h-screen w-[300px] border-r border-border/70 bg-background/95 lg:sticky lg:top-0 lg:flex lg:flex-col">
+      <aside className="hidden min-h-screen w-[300px] border-r border-border/70 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--background)_94%,var(--primary)_6%),var(--background))] lg:sticky lg:top-0 lg:flex lg:flex-col">
         <div className="flex flex-1 flex-col gap-6 p-6">
-          <Link href="/dashboard" className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-              <span className="text-sm font-semibold">A</span>
-            </div>
-            <div>
-              <p className="text-sm font-semibold tracking-[0.22em] uppercase text-muted-foreground">
-                Acadex
-              </p>
-              <p className="text-sm text-muted-foreground">Student productivity workspace</p>
+          <Link href="/dashboard" className="rounded-[1.4rem] border border-border/60 bg-card/70 p-3 shadow-[0_20px_40px_-34px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+            <BrandMark subtitle="Student productivity workspace" />
+            <div className="mt-4 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">Live</span>
+              <span>Emerald workspace</span>
             </div>
           </Link>
 
-          <div className="rounded-2xl border border-border/60 bg-card/60 px-4 py-3">
+          <div className="rounded-[1.4rem] border border-border/60 bg-card/70 px-4 py-3 shadow-[0_20px_40px_-34px_rgba(15,23,42,0.35)] backdrop-blur-xl">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">
               Workspace
             </p>
@@ -76,18 +73,11 @@ export function DashboardNavbar() {
         </div>
       </aside>
 
-      <header className="border-b border-border/70 bg-background/95 px-4 py-4 lg:hidden">
+      <header className="border-b border-border/70 bg-background/90 px-4 py-4 lg:hidden backdrop-blur-xl">
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/dashboard" className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-2">
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-                <span className="text-sm font-semibold">A</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold tracking-[0.22em] uppercase text-muted-foreground">
-                  Acadex
-                </p>
-              </div>
+            <Link href="/dashboard" className="rounded-2xl border border-border/60 bg-card/70 p-2 shadow-[0_16px_30px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+              <BrandMark showLabel={false} />
             </Link>
 
             <div className="flex items-center gap-2">
