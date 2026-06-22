@@ -8,20 +8,19 @@ Sprint Length: 1 Week
 
 ---
 
-# Sprint 1 – Project Foundation
+# Sprint 1 - Project Foundation
 
 Goal:
-Set up the development environment and authentication system.
+Set up the development environment, Supabase connection, and authentication system.
 
 Tasks:
 
 * Initialize Next.js Project
 * Configure Tailwind CSS
 * Configure ShadCN UI
-* Configure Prisma
-* Configure PostgreSQL
-* Configure Auth.js
+* Configure Supabase
 * Create Database Schema
+* Add Row Level Security
 * Create Authentication Pages
 
 Deliverable:
@@ -32,7 +31,7 @@ Deliverable:
 
 ---
 
-# Sprint 2 – Subject Management
+# Sprint 2 - Subject Management
 
 Goal:
 Build subject organization features.
@@ -50,7 +49,7 @@ Deliverable:
 
 ---
 
-# Sprint 3 – Task Management
+# Sprint 3 - Task Management
 
 Goal:
 Build task tracking system.
@@ -69,7 +68,7 @@ Deliverable:
 
 ---
 
-# Sprint 4 – Pomodoro System
+# Sprint 4 - Pomodoro System
 
 Goal:
 Implement productivity timer.
@@ -87,7 +86,7 @@ Deliverable:
 
 ---
 
-# Sprint 5 – Analytics Dashboard
+# Sprint 5 - Analytics Dashboard
 
 Goal:
 Provide productivity insights.

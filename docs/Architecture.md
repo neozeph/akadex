@@ -2,19 +2,11 @@
 
 ## System Architecture
 
-ACADEX follows a modern full-stack web architecture using Next.js, Prisma, PostgreSQL, and Auth.js.
-
-### Architecture Overview
+ACADEX uses a simple full-stack web architecture:
 
 Frontend (Next.js)
-↓
-Route Handlers (API Layer)
-↓
-Service Layer
-↓
-Prisma ORM
-↓
-PostgreSQL Database
+-> Supabase Auth
+-> Supabase PostgreSQL
 
 ---
 
@@ -22,8 +14,8 @@ PostgreSQL Database
 
 ### Frontend
 
-* Next.js 15
-* React
+* Next.js 16
+* React 19
 * TypeScript
 * Tailwind CSS
 * ShadCN UI
@@ -31,28 +23,21 @@ PostgreSQL Database
 
 ### Backend
 
-* Next.js Route Handlers
-* TypeScript
+* Next.js App Router
+* Supabase client helpers
+* Route handlers when needed
 
 ### Authentication
 
-* Auth.js
-* Google OAuth
-* Credentials Provider
+* Supabase Auth
+* Email/password first
+* Google OAuth later if needed
 
 ### Database
 
 * PostgreSQL
-* Supabase Hosting
-
-### ORM
-
-* Prisma ORM
-
-### State Management
-
-* Zustand
-* TanStack Query
+* Supabase hosting
+* Row Level Security
 
 ### Deployment
 
@@ -67,98 +52,76 @@ PostgreSQL Database
 
 Responsibilities:
 
-* Register Users
-* Login Users
-* Session Management
+* Register users
+* Login users
+* Session management
 * Authorization
 
 ### Dashboard Module
 
 Responsibilities:
 
-* Overview Statistics
+* Overview statistics
 * Deadlines
-* Productivity Insights
+* Productivity insights
 
 ### Subject Module
 
 Responsibilities:
 
-* Subject CRUD Operations
-* Subject Organization
+* Subject CRUD operations
+* Subject organization
 
 ### Task Module
 
 Responsibilities:
 
-* Task CRUD Operations
-* Task Prioritization
-* Deadline Tracking
+* Task CRUD operations
+* Task prioritization
+* Deadline tracking
 
 ### Pomodoro Module
 
 Responsibilities:
 
-* Timer Management
-* Session Tracking
-* Study Statistics
-
-### Analytics Module
-
-Responsibilities:
-
-* Productivity Reports
-* Study Trends
-* Focus Statistics
+* Timer management
+* Session tracking
+* Study statistics
 
 ---
 
 ## Project Structure
 
 src/
-│
-├── app/
-│ ├── dashboard/
-│ ├── tasks/
-│ ├── subjects/
-│ ├── pomodoro/
-│ ├── analytics/
-│ ├── profile/
-│ └── api/
-│
-├── components/
-│ ├── ui/
-│ ├── dashboard/
-│ ├── tasks/
-│ ├── subjects/
-│ └── pomodoro/
-│
-├── services/
-├── hooks/
-├── store/
-├── types/
-├── lib/
-└── prisma/
+|-- app/
+|   |-- (marketing)/
+|   |-- (auth)/
+|   |-- (dashboard)/
+|   |-- api/
+|-- components/
+|-- lib/
+|   |-- supabase/
+|-- hooks/
+|-- store/
+|-- types/
 
 ---
 
 ## Security Considerations
 
-* Secure Password Hashing
-* Route Protection
-* Session Validation
-* Input Validation
-* CSRF Protection
-* Environment Variable Security
+* Secure authentication through Supabase
+* Row Level Security on every user-owned table
+* Environment variables stay in `.env`
+* Server helpers never expose secrets to the browser
 
 ---
 
 ## Scalability Plan
 
-Future architecture additions:
+Future additions can live on top of the same stack:
 
-* Notes Service
-* Calendar Service
-* AI Assistant Service
-* Notification Service
-* Collaboration Service
+* Notes service
+* Calendar service
+* Notifications
+* AI assistant
+* Collaboration features

@@ -2,139 +2,128 @@
 
 ## Database Engine
 
-PostgreSQL
+PostgreSQL on Supabase.
 
-## ORM
+## Auth Model
 
-Prisma ORM
-
----
-
-## Entity Relationship Diagram
-
-User
-│
-├── Subject
-│ └── Task
-│
-└── PomodoroSession
+Supabase Auth handles users.
+App data lives in public tables with Row Level Security.
 
 ---
 
-## User Table
+## Core Tables
+
+### profiles
+
+Stores extra user information linked to `auth.users`.
 
 Fields:
 
 * id
-* name
-* email
-* password
-* image
-* createdAt
-* updatedAt
+* full_name
+* avatar_url
+* created_at
+* updated_at
 
-Relationships:
+### semesters
 
-* One User → Many Subjects
-* One User → Many Pomodoro Sessions
-
----
-
-## Subject Table
+Stores each academic term a student creates.
 
 Fields:
 
 * id
-* userId
-* name
-* description
-* color
-* createdAt
-* updatedAt
+* user_id
+* title
+* school_year
+* created_at
+* updated_at
 
-Relationships:
+### subjects
 
-* One Subject → Many Tasks
-
----
-
-## Task Table
+Stores the student's subjects for each semester.
 
 Fields:
 
 * id
-* subjectId
+* user_id
+* semester_id
+* subject_code
+* subject_name
+* units
+* grade
+* created_at
+* updated_at
+
+### tasks
+
+Stores academic tasks and to-dos.
+
+Fields:
+
+* id
+* user_id
+* subject_id
 * title
 * description
+* tags
+* due_date
 * priority
 * status
-* dueDate
-* createdAt
-* updatedAt
+* created_at
+* updated_at
 
-Priority Enum:
+Priority values:
 
-* LOW
-* MEDIUM
-* HIGH
-* URGENT
+* low
+* medium
+* high
+* urgent
 
-Status Enum:
+Tags are stored as a text array and entered as comma-separated values in the UI.
 
-* TODO
-* IN_PROGRESS
-* DONE
+Status values:
 
----
+* todo
+* in_progress
+* done
 
-## PomodoroSession Table
+### pomodoro_sessions
+
+Stores study session history.
 
 Fields:
 
 * id
-* userId
+* user_id
 * duration
 * completed
-* startedAt
-* endedAt
+* started_at
+* ended_at
+* created_at
+* updated_at
 
 ---
 
-## Future Tables
+## Relationship Summary
 
-### Note
-
-* id
-* userId
-* title
-* content
-
-### Event
-
-* id
-* userId
-* title
-* date
-
-### Group
-
-* id
-* name
-* ownerId
-
-### ChatHistory
-
-* id
-* userId
-* message
-* response
+* One user has many semesters.
+* One user has many subjects.
+* One user has many tasks.
+* One user has many pomodoro sessions.
+* One semester has many subjects.
+* One subject can have many tasks.
 
 ---
 
-## Database Design Principles
+## Security Rules
 
-* Normalized Structure
-* Referential Integrity
-* Indexed Foreign Keys
-* Scalable Entity Relationships
-* Soft Deletion Support (Future)
+* Every user-owned table uses `user_id = auth.uid()` in RLS.
+* `profiles.id` must match the authenticated user.
+* Foreign keys cascade or null out safely when a parent row is removed.
+* Timestamps update automatically with a trigger.
+
+---
+
+## Next Step
+
+Run [supabase/schema.sql](C:\Users\user\Documents\GitHub\acadex\supabase\schema.sql) in the Supabase SQL editor, then we can move on to authentication and protected routes.

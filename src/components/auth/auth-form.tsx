@@ -1,0 +1,119 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+
+import { Button } from "@/components/ui/button"
+import { createSupabaseBrowserClient } from "@/lib/supabase/client"
+
+type AuthFormProps = {
+  mode: "login" | "register"
+}
+
+export function AuthForm({ mode }: AuthFormProps) {
+  const router = useRouter()
+  const supabase = createSupabaseBrowserClient()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setLoading(true)
+    setMessage(null)
+
+    if (mode === "register") {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      })
+
+      if (error) {
+        setMessage(error.message)
+      } else {
+        setMessage("Account created. Check your email if confirmation is enabled.")
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        setMessage(error.message)
+      } else {
+        router.push("/dashboard")
+        router.refresh()
+      }
+    }
+
+    setLoading(false)
+  }
+
+  return (
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      {mode === "register" ? (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="full-name">
+            Full name
+          </label>
+          <input
+            id="full-name"
+            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-slate-400"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="Juan Dela Cruz"
+            autoComplete="name"
+          />
+        </div>
+      ) : null}
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="email">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-slate-400"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="you@example.com"
+          autoComplete="email"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="password">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-slate-400"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="••••••••"
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+        />
+      </div>
+
+      {message ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {message}
+        </p>
+      ) : null}
+
+      <Button className="w-full" size="lg" type="submit" disabled={loading}>
+        {loading ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}
+      </Button>
+    </form>
+  )
+}
