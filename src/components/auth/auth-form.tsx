@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type AuthFormProps = {
@@ -61,12 +62,11 @@ export function AuthForm({ mode }: AuthFormProps) {
     <form className="space-y-4" onSubmit={handleSubmit}>
       {mode === "register" ? (
         <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="full-name">
+          <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="full-name">
             Full name
           </label>
-          <input
+          <Input
             id="full-name"
-            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-slate-400"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             placeholder="Juan Dela Cruz"
@@ -76,13 +76,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       ) : null}
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="email">
+        <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="email">
           Email
         </label>
-        <input
+        <Input
           id="email"
           type="email"
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-slate-400"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
@@ -91,13 +90,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="password">
+        <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="password">
           Password
         </label>
-        <input
+        <Input
           id="password"
           type="password"
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-slate-400"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
@@ -106,7 +104,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       {message ? (
-        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <p className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
           {message}
         </p>
       ) : null}

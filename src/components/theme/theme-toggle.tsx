@@ -1,14 +1,15 @@
 "use client"
 
 import { MoonStar, SunMedium } from "lucide-react"
-import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/theme/theme-provider"
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme()
+  const { resolvedTheme, mounted, setTheme } = useTheme()
 
   const isDark = resolvedTheme === "dark"
+  const isReady = mounted
 
   return (
     <Button
@@ -19,8 +20,12 @@ export function ThemeToggle() {
       aria-label="Toggle dark mode"
       className="gap-2"
     >
-      {isDark ? <SunMedium className="size-4" /> : <MoonStar className="size-4" />}
-      <span className="hidden sm:inline">{isDark ? "Light mode" : "Dark mode"}</span>
+      {isReady ? (
+        isDark ? <SunMedium className="size-4" /> : <MoonStar className="size-4" />
+      ) : (
+        <MoonStar className="size-4" />
+      )}
+      <span className="hidden sm:inline">{isReady ? (isDark ? "Light mode" : "Dark mode") : "Theme"}</span>
     </Button>
   )
 }
