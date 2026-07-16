@@ -15,7 +15,7 @@ const footerLinks = [
 ]
 
 const resources = [
-  { label: "GitHub", href: "https://github.com/neozeph/acadex" },
+  { label: "GitHub", href: "https://github.com/neozeph/akadeks" },
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
 ]
@@ -71,8 +71,8 @@ export function Footer() {
       </div>
 
       <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-3 border-t border-border/70 pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <p>© 2026 Acadex. Made with <Heart className="inline size-4 text-rose-500" /> by Josef.</p>
-        <a href="https://github.com/neozeph/acadex" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-foreground">
+        <p>© 2026 Akadeks. Made with <Heart className="inline size-4 text-rose-500" /> by Josef.</p>
+        <a href="https://github.com/neozeph/akadeks" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-foreground">
           <GitBranch className="size-4" />
           GitHub
         </a>

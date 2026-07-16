@@ -1,4 +1,4 @@
--- ACADEX core schema for Supabase Postgres
+-- AKADEKS core schema for Supabase Postgres
 -- Paste this into the Supabase SQL editor and run it once.
 
 create extension if not exists "pgcrypto";

@@ -25,7 +25,7 @@ const pixelifySans = Pixelify_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "Acadex",
+  title: "Akadeks",
   description: "Student productivity and academic management platform",
 }
 

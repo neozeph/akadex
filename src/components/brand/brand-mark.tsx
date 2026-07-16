@@ -23,7 +23,7 @@ export function BrandMark({
       {showLabel ? (
         <div className="leading-tight">
           <p className="text-sm font-semibold tracking-[0.24em] uppercase text-foreground">
-            Acadex
+            Akadeks
           </p>
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>

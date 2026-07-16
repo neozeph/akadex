@@ -1,6 +1,6 @@
-# Acadex
+# Akadeks
 
-Acadex is a cozy, student-focused productivity app built with Next.js, Supabase, and Tailwind CSS. It helps students manage semesters, subjects, study tasks, and focus sessions in one calm workspace.
+Akadeks is a cozy, student-focused productivity app built with Next.js, Supabase, and Tailwind CSS. It helps students manage semesters, subjects, study tasks, and focus sessions in one calm workspace.
 
 ## What it does
 

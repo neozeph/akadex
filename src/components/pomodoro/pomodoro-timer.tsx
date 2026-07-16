@@ -191,7 +191,7 @@ export function PomodoroTimer({
           <div className="rounded-[2rem] border border-border p-5">
             <p className="text-sm text-muted-foreground">Auto logging</p>
             <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              When a focus cycle reaches zero, Acadex saves the session to Supabase
+              When a focus cycle reaches zero, Akadeks saves the session to Supabase
               and updates dashboard metrics.
             </p>
           </div>

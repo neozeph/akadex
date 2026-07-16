@@ -3,8 +3,8 @@ import type { Metadata } from "next"
 import { PageShell } from "@/components/landing/PageShell"
 
 export const metadata: Metadata = {
-  title: "Acadex Changelog",
-  description: "See the latest updates and improvements to Acadex as the product continues to grow.",
+  title: "Akadeks Changelog",
+  description: "See the latest updates and improvements to Akadeks as the product continues to grow.",
 }
 
 const updates = [
@@ -12,7 +12,7 @@ const updates = [
     version: "0.1.0",
     date: "June 2026",
     title: "Initial public launch",
-    description: "The first version of Acadex introduced the landing experience, semester planning, GPA tracking, tasks, and focus sessions.",
+    description: "The first version of Akadeks introduced the landing experience, semester planning, GPA tracking, tasks, and focus sessions.",
   },
   {
     version: "0.1.1",
@@ -27,7 +27,7 @@ export default function ChangelogPage() {
     <PageShell
       eyebrow="Changelog"
       title="A growing product, documented as it evolves."
-      description="Acadex is actively shaping its roadmap, and this space will continue to capture the most important milestones along the way."
+      description="Akadeks is actively shaping its roadmap, and this space will continue to capture the most important milestones along the way."
     >
       <div className="space-y-4">
         {updates.map((item) => (

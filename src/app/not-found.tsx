@@ -20,17 +20,17 @@ export default function NotFound() {
           The page you were looking for is not here. Return to base camp and continue your academic adventure with a clear path forward.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link href="/">
-            <Button size="lg" className="gap-2">
+          <Button asChild size="lg" className="gap-2">
+            <Link href="/">
               <Home className="size-4" />
               Return to Base Camp
-            </Button>
-          </Link>
-          <Link href="/contact">
-            <Button variant="outline" size="lg">
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href="/contact">
               Contact us
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
     </main>

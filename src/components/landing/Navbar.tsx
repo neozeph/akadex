@@ -43,7 +43,7 @@ export function Navbar() {
         <div className="flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-3 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
             <BrandMark showLabel={false} className="gap-2" />
-            <span className="text-sm font-semibold uppercase tracking-[0.24em] text-foreground">Acadex</span>
+            <span className="text-sm font-semibold uppercase tracking-[0.24em] text-foreground">Akadeks</span>
           </Link>
 
           <nav className="hidden items-center gap-6 md:flex" aria-label="Primary navigation">
@@ -68,7 +68,7 @@ export function Navbar() {
             </Link>
             <Link href="/register" className="hidden sm:inline-flex">
               <Button size="sm" className="gap-1.5">
-                Start Adventure
+                Start
                 <ArrowRight className="size-4" />
               </Button>
             </Link>

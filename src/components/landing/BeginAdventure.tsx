@@ -26,7 +26,7 @@ export function BeginAdventure() {
               Ready to begin your academic adventure?
             </h2>
             <p className="mt-5 text-lg leading-8 text-muted-foreground">
-              Every great journey starts with a single step. Build stronger study habits, stay organized, and take control of your college life with Acadex.
+              Every great journey starts with a single step. Build stronger study habits, stay organized, and take control of your college life with Akadeks.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">

@@ -1,4 +1,4 @@
-# ACADEX Database Design
+# AKADEKS Database Design
 
 ## Database Engine
 

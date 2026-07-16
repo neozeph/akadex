@@ -129,7 +129,7 @@ export default async function SettingsPage() {
           <div className="rounded-2xl border border-border p-4">
             <ThemeToggle />
             <p className="mt-3 text-sm text-muted-foreground">
-              Acadex follows your system theme by default.
+              Akadeks follows your system theme by default.
             </p>
           </div>
 
