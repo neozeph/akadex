@@ -5,12 +5,12 @@ import { ArrowLeft, Sparkles, Trophy } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { BrandMark } from "@/components/brand/brand-mark"
 import { Badge } from "@/components/ui/badge"
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 
 export default async function RegisterPage() {
-  const { data } = await getSupabaseClaims()
+  const user = await getAuthenticatedUser()
 
-  if (data?.claims?.sub) {
+  if (user) {
     redirect("/dashboard")
   }
 
@@ -27,7 +27,7 @@ export default async function RegisterPage() {
             <div className="rounded-[2rem] border border-border/70 bg-card/70 p-6 shadow-soft sm:p-8">
               <Badge variant="accent" className="gap-2 px-3 py-1.5">
                 <Sparkles className="size-3.5" />
-                Join Akadeks
+                Join Akadex
               </Badge>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
                 Create your academic workspace in a minute.

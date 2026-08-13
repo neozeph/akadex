@@ -2,34 +2,30 @@ import { redirect } from "next/navigation"
 import { UserCircle2, Mail, Palette, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/ui/page-header"
 import { SignOutButton } from "@/components/auth/sign-out-button"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 
 import { updateDisplayName } from "./actions"
 import { getSettingsPageData } from "./data"
 
 export default async function SettingsPage() {
-  const { data } = await getSupabaseClaims()
+  const user = await getAuthenticatedUser()
 
-  if (!data?.claims?.sub) {
+  if (!user) {
     redirect("/login")
   }
 
-  const { user, profile } = await getSettingsPageData()
-  const currentName = profile?.full_name ?? user?.user_metadata?.full_name ?? ""
+  const { profile } = await getSettingsPageData()
+  const currentName = profile?.full_name ?? user.user_metadata?.full_name ?? ""
 
   return (
     <main className="space-y-6">
-      <section className="rounded-[2rem] border border-border bg-card p-8 shadow-sm">
-        <p className="text-sm font-semibold tracking-[0.25em] text-muted-foreground uppercase">
-          Settings
-        </p>
-        <h1 className="mt-4 text-3xl font-semibold">Profile and preferences</h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Keep your account details and display preferences in one place.
-        </p>
-      </section>
+      <PageHeader
+        title="Settings"
+        description="Manage your Akadex account and preferences."
+      />
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
@@ -129,7 +125,7 @@ export default async function SettingsPage() {
           <div className="rounded-2xl border border-border p-4">
             <ThemeToggle />
             <p className="mt-3 text-sm text-muted-foreground">
-              Akadeks follows your system theme by default.
+              Akadex follows your system theme by default.
             </p>
           </div>
 

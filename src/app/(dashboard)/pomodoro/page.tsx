@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation"
 
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 
 import { logPomodoroSession } from "./actions"
 import { getPomodoroPageData } from "./data"
 import { PomodoroTimer } from "@/components/pomodoro/pomodoro-timer"
+import { PageHeader } from "@/components/ui/page-header"
 import { Clock3, Flame, Hourglass, Zap } from "lucide-react"
 
 function formatSessionTime(value: string) {
@@ -22,17 +23,19 @@ function formatDuration(seconds: number) {
 }
 
 export default async function PomodoroPage() {
-  const { data } = await getSupabaseClaims()
+  const user = await getAuthenticatedUser()
 
-  if (!data?.claims?.sub) {
+  if (!user) {
     redirect("/login")
   }
 
-  const userId = data.claims.sub
+  const userId = user.id
   const { recentSessions, completedTodayCount, totalFocusMinutes } = await getPomodoroPageData(userId)
 
   return (
     <main className="space-y-6">
+      <PageHeader title="Pomodoro" description="Stay focused with structured study sessions." />
+
       <PomodoroTimer onCompleteSession={logPomodoroSession} />
 
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
@@ -90,7 +93,7 @@ export default async function PomodoroPage() {
           <div>
             <h2 className="text-xl font-semibold">Recent sessions</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Your latest saved focus sessions from Supabase.
+              Your recent focus sessions.
             </p>
           </div>
         </div>

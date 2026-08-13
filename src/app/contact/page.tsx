@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button"
 import { PageShell } from "@/components/landing/PageShell"
 
 export const metadata: Metadata = {
-  title: "Contact Akadeks",
-  description: "Reach out to the Akadeks team through GitHub or email for questions, feedback, or ideas.",
+  title: "Contact Akadex",
+  description: "Reach out to the Akadex team through GitHub or email for questions, feedback, or ideas.",
 }
 
 export default function ContactPage() {
   return (
     <PageShell
       eyebrow="Contact"
-      title="Say hello and share what you are building with Akadeks."
+      title="Say hello and share what you are building with Akadex."
       description="Whether you have a question, a feature idea, or want to talk through your academic workflow, the door is open."
       actions={
         <>

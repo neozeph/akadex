@@ -4,17 +4,17 @@ import { PageShell } from "@/components/landing/PageShell"
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms governing use of the Akadeks platform.",
+  description: "The terms governing use of the Akadex platform.",
 }
 
 const sections = [
   {
-    title: "About Akadeks",
-    content: "Akadeks is a student productivity and academic management platform designed to help students organize their academic life by managing semesters, tracking grades, monitoring GPA, organizing tasks, and improving productivity through focus sessions. Akadeks is provided as a productivity tool and should not be considered an official academic record or substitute for your school's systems.",
+    title: "About Akadex",
+    content: "Akadex is a student productivity and academic management platform designed to help students organize their academic life by managing semesters, tracking grades, monitoring GPA, organizing tasks, and improving productivity through focus sessions. Akadex is provided as a productivity tool and should not be considered an official academic record or substitute for your school's systems.",
   },
   {
     title: "Eligibility",
-    content: "You must be at least 13 years old, or meet the minimum age required in your country, to use Akadeks. By using the platform, you confirm that the information you provide is accurate.",
+    content: "You must be at least 13 years old, or meet the minimum age required in your country, to use Akadex. By using the platform, you confirm that the information you provide is accurate.",
   },
   {
     title: "User Accounts",
@@ -22,15 +22,15 @@ const sections = [
   },
   {
     title: "Acceptable Use",
-    content: "You agree not to use Akadeks for unlawful purposes, attempt unauthorized access to other accounts, upload malicious code or harmful content, interfere with the operation or security of the platform, or misuse the service in a way that may affect other users.",
+    content: "You agree not to use Akadex for unlawful purposes, attempt unauthorized access to other accounts, upload malicious code or harmful content, interfere with the operation or security of the platform, or misuse the service in a way that may affect other users.",
   },
   {
     title: "Academic Information",
-    content: "Akadeks stores information entered by users, including semester information, subjects, grades, tasks, and productivity records. Users are solely responsible for the accuracy of the information they enter. Akadeks does not verify academic records.",
+    content: "Akadex stores information entered by users, including semester information, subjects, grades, tasks, and productivity records. Users are solely responsible for the accuracy of the information they enter. Akadex does not verify academic records.",
   },
   {
     title: "Limitation of Liability",
-    content: "Akadeks is provided as an educational productivity tool. We are not responsible for lost academic data, missed deadlines, incorrect GPA calculations caused by incorrect user input, or academic decisions made based on information stored within the platform.",
+    content: "Akadex is provided as an educational productivity tool. We are not responsible for lost academic data, missed deadlines, incorrect GPA calculations caused by incorrect user input, or academic decisions made based on information stored within the platform.",
   },
 ]
 
@@ -38,7 +38,7 @@ export default function TermsPage() {
   return (
     <PageShell
       eyebrow="Terms of Service"
-      title="The rules that guide the use of Akadeks."
+      title="The rules that guide the use of Akadex."
       description="These terms outline how the service is intended to be used and what responsibilities belong to both the user and the platform."
     >
       <div className="space-y-4">

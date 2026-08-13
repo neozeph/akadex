@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 
 export async function getSettingsPageData() {
   const cookieStore = await cookies()
@@ -10,21 +11,17 @@ export async function getSettingsPageData() {
     },
   })
 
-  const [userResult, profileResult] = await Promise.all([
-    supabase.auth.getUser(),
+  const [user, profileResult] = await Promise.all([
+    getAuthenticatedUser(),
     supabase.from("profiles").select("full_name, avatar_url, created_at").maybeSingle(),
   ])
-
-  if (userResult.error) {
-    throw new Error(userResult.error.message)
-  }
 
   if (profileResult.error) {
     throw new Error(profileResult.error.message)
   }
 
   return {
-    user: userResult.data.user,
+    user,
     profile: profileResult.data,
   }
 }

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { calculateGwa } from "@/lib/grades"
 
 export type DashboardData = {
   overallGpa: number | null
@@ -65,13 +66,10 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   const upcomingTasks = upcomingTasksResult.data ?? []
   const pomodoroSessions = pomodoroResult.data ?? []
 
-  const gradedSubjects = subjects.filter((subject) => subject.grade !== null)
-  const totalUnitsCompleted = gradedSubjects.reduce((sum, subject) => sum + Number(subject.units), 0)
-  const weightedGradePoints = gradedSubjects.reduce(
-    (sum, subject) => sum + Number(subject.units) * Number(subject.grade),
-    0,
-  )
-  const overallGpa = totalUnitsCompleted > 0 ? weightedGradePoints / totalUnitsCompleted : null
+  const totalUnitsCompleted = subjects
+    .filter((subject) => subject.grade !== null)
+    .reduce((sum, subject) => sum + Number(subject.units), 0)
+  const overallGpa = calculateGwa(subjects)
 
   return {
     overallGpa,

@@ -1,13 +1,18 @@
-import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { PencilLine, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { PageHeader } from "@/components/ui/page-header"
+import { DeleteConfirmDialog } from "@/components/academic/delete-confirm-dialog"
+import { EditSemesterDialog } from "@/components/academic/edit-semester-dialog"
+import { CreateSemesterDialog } from "@/components/academic/create-semester-dialog"
+import { SemesterCard } from "@/components/academic/semester-card"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { formatSemesterLabel } from "@/lib/semesters"
 
-import { createSemester, deleteSemester } from "./actions"
+import { createSemester, deleteSemester, updateSemester } from "./actions"
 
 async function getSemesters() {
   const cookieStore = await cookies()
@@ -17,17 +22,17 @@ async function getSemesters() {
     },
   })
 
-  const { data: claimsResult } = await getSupabaseClaims()
+  const user = await getAuthenticatedUser()
 
-  if (!claimsResult?.claims?.sub) {
+  if (!user) {
     redirect("/login")
   }
 
-  const userId = claimsResult.claims.sub
+  const userId = user.id
 
   const { data, error } = await supabase
     .from("semesters")
-    .select("id, title, school_year, created_at")
+    .select("id, title, school_year, year_level, term, school_year_start, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
 
@@ -40,115 +45,102 @@ async function getSemesters() {
 
 export default async function SemestersPage() {
   const semesters = await getSemesters()
+  const currentYear = new Date().getFullYear()
 
   return (
     <main className="space-y-6">
-      <section className="rounded-[2rem] border border-border bg-card p-8 shadow-sm">
-        <p className="text-sm font-semibold tracking-[0.25em] text-muted-foreground uppercase">
-          Semesters
-        </p>
-        <h1 className="mt-4 text-3xl font-semibold">Manage academic terms</h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Add each semester here before tracking subjects and GPA.
-        </p>
-      </section>
+      <PageHeader
+        title="Semesters"
+        description="Organize subjects and track your academic performance."
+        action={<CreateSemesterDialog onCreate={createSemester} currentYear={currentYear} />}
+      />
 
-      <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <form
-          action={createSemester}
-          className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm"
-        >
-          <div>
-            <h2 className="text-xl font-semibold">New semester</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Keep titles simple and consistent.
-            </p>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {semesters.length} semester{semesters.length === 1 ? "" : "s"}
+          </h2>
+        </div>
+
+        {semesters.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            No semesters yet. Use &ldquo;Add Semester&rdquo; above to create your first one.
           </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {semesters.map((semester) => {
+              async function handleDeleteSemester() {
+                "use server"
 
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="title">
-              Semester title
-            </label>
-            <input
-              id="title"
-              name="title"
-              placeholder="1st Year 1st Semester"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              required
-            />
-          </div>
+                const formData = new FormData()
+                formData.set("semester_id", semester.id)
+                await deleteSemester(formData)
+              }
 
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="school_year">
-              School year
-            </label>
-            <input
-              id="school_year"
-              name="school_year"
-              placeholder="2025-2026"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              required
-            />
-          </div>
+              async function handleUpdateSemester(values: {
+                yearLevel: number
+                term: string
+                schoolYearStart: number
+              }) {
+                "use server"
 
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-          >
-            Save semester
-          </button>
-        </form>
+                const formData = new FormData()
+                formData.set("semester_id", semester.id)
+                formData.set("year_level", String(values.yearLevel))
+                formData.set("term", values.term)
+                formData.set("school_year_start", String(values.schoolYearStart))
+                await updateSemester(formData)
+              }
 
-        <section className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Your semesters</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {semesters.length} semester{semesters.length === 1 ? "" : "s"} found
-              </p>
-            </div>
-          </div>
+              const semesterLabel = formatSemesterLabel(semester)
 
-          <div className="grid gap-4">
-            {semesters.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-sm text-muted-foreground">
-                No semesters yet. Add your first one on the left.
-              </div>
-            ) : (
-              semesters.map((semester) => (
-                <article
+              return (
+                <SemesterCard
                   key={semester.id}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4"
-                >
-                  <div>
-                    <h3 className="font-semibold">{semester.title}</h3>
-                    <p className="text-sm text-muted-foreground">{semester.school_year}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/semesters/${semester.id}`}>
-                        <PencilLine className="size-4" />
-                        Edit
-                      </Link>
-                    </Button>
-
-                    <form action={deleteSemester}>
-                      <input type="hidden" name="semester_id" value={semester.id} />
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10"
-                      >
-                        <Trash2 className="size-4" />
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </article>
-              ))
-            )}
+                  semester={semester}
+                  editAction={
+                    <EditSemesterDialog
+                      trigger={
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label={`Edit ${semesterLabel}`}
+                          className="bg-card"
+                        >
+                          <PencilLine className="size-3.5" />
+                        </Button>
+                      }
+                      initialYearLevel={semester.year_level}
+                      initialTerm={semester.term}
+                      initialSchoolYearStart={semester.school_year_start}
+                      currentYear={currentYear}
+                      onSave={handleUpdateSemester}
+                    />
+                  }
+                  deleteAction={
+                    <DeleteConfirmDialog
+                      trigger={
+                        <button
+                          type="button"
+                          aria-label={`Delete ${semesterLabel}`}
+                          className="inline-flex size-7 items-center justify-center rounded-lg border border-border bg-card text-destructive transition hover:bg-destructive/10"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      }
+                      title={`Delete ${semesterLabel}?`}
+                      description="This will permanently delete this semester and all subjects inside it. This action cannot be undone."
+                      confirmLabel="Delete semester"
+                      pendingLabel="Deleting..."
+                      errorMessage="Something went wrong deleting this semester. Please try again."
+                      onConfirm={handleDeleteSemester}
+                    />
+                  }
+                />
+              )
+            })}
           </div>
-        </section>
+        )}
       </section>
     </main>
   )

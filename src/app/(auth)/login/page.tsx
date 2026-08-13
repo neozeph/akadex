@@ -5,14 +5,26 @@ import { ArrowLeft, BookOpen, ShieldCheck } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { BrandMark } from "@/components/brand/brand-mark"
 import { Badge } from "@/components/ui/badge"
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 
-export default async function LoginPage() {
-  const { data } = await getSupabaseClaims()
+const CALLBACK_ERROR_MESSAGES: Record<string, string> = {
+  missing_code: "That confirmation link is missing required information. Please request a new one.",
+  confirmation_failed: "That confirmation link is invalid or has expired. Please try registering again or request a new confirmation email.",
+}
 
-  if (data?.claims?.sub) {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const user = await getAuthenticatedUser()
+
+  if (user) {
     redirect("/dashboard")
   }
+
+  const { error } = await searchParams
+  const errorMessage = error ? CALLBACK_ERROR_MESSAGES[error] ?? "Something went wrong. Please try again." : null
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_32%),linear-gradient(135deg,#f8faf6_0%,#f5fef9_100%)] px-4 py-6 text-foreground dark:bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_28%),linear-gradient(135deg,#0f172a_0%,#111827_100%)] sm:px-6 lg:px-8">
@@ -59,6 +71,11 @@ export default async function LoginPage() {
                   </Link>
                 </p>
               </div>
+              {errorMessage ? (
+                <p className="mb-6 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {errorMessage}
+                </p>
+              ) : null}
               <AuthForm mode="login" />
             </div>
           </section>

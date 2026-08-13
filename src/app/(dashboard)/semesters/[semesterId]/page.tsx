@@ -1,11 +1,13 @@
-import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { PencilLine, Save, Trash2 } from "lucide-react"
+import { Save, Trash2 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { formatGrade, getSubjectStatus, GRADE_OPTIONS } from "@/lib/grades"
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { PageHeader } from "@/components/ui/page-header"
+import { DeleteConfirmDialog } from "@/components/academic/delete-confirm-dialog"
+import { CreateSubjectDialog } from "@/components/academic/create-subject-dialog"
+import { calculateGwa, formatGrade, getSubjectStatus, GRADE_OPTIONS } from "@/lib/grades"
+import { formatSemesterLabel, formatSemesterSchoolYear } from "@/lib/semesters"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 import { createSubject, deleteSubject, updateSubject } from "./actions"
@@ -18,17 +20,17 @@ async function getSemesterDetail(semesterId: string) {
     },
   })
 
-  const { data: claimsResult } = await getSupabaseClaims()
+  const user = await getAuthenticatedUser()
 
-  if (!claimsResult?.claims?.sub) {
+  if (!user) {
     redirect("/login")
   }
 
-  const userId = claimsResult.claims.sub
+  const userId = user.id
 
   const { data: semester, error: semesterError } = await supabase
     .from("semesters")
-    .select("id, title, school_year, created_at")
+    .select("id, title, school_year, year_level, term, school_year_start, created_at")
     .eq("id", semesterId)
     .eq("user_id", userId)
     .maybeSingle()
@@ -58,33 +60,29 @@ export default async function SemesterDetailPage({
 }) {
   const { semesterId } = await params
   const { semester, subjects } = await getSemesterDetail(semesterId)
-  const gradedSubjects = subjects.filter((subject) => subject.grade !== null)
-  const semesterUnits = gradedSubjects.reduce((sum, subject) => sum + Number(subject.units), 0)
-  const semesterWeightedGrades = gradedSubjects.reduce(
-    (sum, subject) => sum + Number(subject.units) * Number(subject.grade),
-    0,
-  )
-  const semesterGwa = semesterUnits > 0 ? semesterWeightedGrades / semesterUnits : null
-  const passedSubjects = subjects.filter((subject) => subject.grade !== null && Number(subject.grade) <= 3).length
-  const failedSubjects = subjects.filter((subject) => Number(subject.grade) === 5).length
+  const semesterUnits = subjects
+    .filter((subject) => subject.grade !== null)
+    .reduce((sum, subject) => sum + Number(subject.units), 0)
+  const semesterGwa = calculateGwa(subjects)
+  const passedSubjects = subjects.filter(
+    (subject) => getSubjectStatus(subject.grade).tone === "success",
+  ).length
+  const failedSubjects = subjects.filter(
+    (subject) => getSubjectStatus(subject.grade).tone === "danger",
+  ).length
+  const semesterLabel = formatSemesterLabel(semester)
+  const semesterSchoolYear = formatSemesterSchoolYear(semester)
 
   return (
     <main className="space-y-6">
-      <section className="rounded-[2rem] border border-border bg-card p-8 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold tracking-[0.25em] text-muted-foreground uppercase">
-              Semester detail
-            </p>
-            <h1 className="mt-4 text-3xl font-semibold">{semester.title}</h1>
-            <p className="mt-3 text-muted-foreground">{semester.school_year}</p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/semesters">Back to semesters</Link>
-          </Button>
-        </div>
+      <PageHeader
+        title={semesterLabel}
+        description={semesterSchoolYear}
+        action={<CreateSubjectDialog semesterId={semester.id} onCreate={createSubject} />}
+      />
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-2xl border border-border p-4">
             <p className="text-sm text-muted-foreground">Semester GWA</p>
             <p className="mt-3 text-3xl font-semibold">
@@ -110,111 +108,31 @@ export default async function SemesterDetailPage({
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <form
-          action={createSubject}
-          className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm"
-        >
-          <input type="hidden" name="semester_id" value={semester.id} />
+      <section className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold">Subjects</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {subjects.length} subject{subjects.length === 1 ? "" : "s"} found
+          </p>
+        </div>
 
-          <div>
-            <h2 className="inline-flex items-center gap-2 text-xl font-semibold">
-              <PencilLine className="size-4 text-muted-foreground" />
-              Add subject
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Start with the classes that matter most this term.
-            </p>
-          </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium" htmlFor="subject_code">
-                Subject code
-              </label>
-              <input
-                id="subject_code"
-                name="subject_code"
-                placeholder="CS101"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm font-mono uppercase outline-none transition focus:border-foreground"
-                required
-              />
+        <div className="grid gap-4">
+          {subjects.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border p-8 text-sm text-muted-foreground">
+              No subjects yet. Add your first subject to start calculating your GWA.
             </div>
+          ) : (
+              subjects.map((subject) => {
+                async function handleDeleteSubject() {
+                  "use server"
 
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="subject_name">
-              Subject name
-            </label>
-            <input
-              id="subject_name"
-              name="subject_name"
-              placeholder="Introduction to Programming"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              required
-            />
-          </div>
+                  const formData = new FormData()
+                  formData.set("semester_id", semester.id)
+                  formData.set("subject_id", subject.id)
+                  await deleteSubject(formData)
+                }
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-2 block text-sm font-medium" htmlFor="units">
-                Units
-              </label>
-              <input
-                id="units"
-                name="units"
-                type="number"
-                step="0.5"
-                min="0.5"
-                max="10"
-                placeholder="3"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium" htmlFor="grade">
-                Grade
-              </label>
-              <select
-                id="grade"
-                name="grade"
-                defaultValue=""
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              >
-                <option value="">No grade yet</option>
-                {GRADE_OPTIONS.map((grade) => (
-                  <option key={grade} value={grade.toFixed(2)}>
-                    {grade.toFixed(2)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-          >
-            <Save className="size-4" />
-            Save subject
-          </button>
-        </form>
-
-        <section className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
-          <div>
-            <h2 className="text-xl font-semibold">Subjects</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {subjects.length} subject{subjects.length === 1 ? "" : "s"} found
-            </p>
-          </div>
-
-          <div className="grid gap-4">
-            {subjects.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-sm text-muted-foreground">
-                No subjects yet. Add your first class on the left.
-              </div>
-            ) : (
-              subjects.map((subject) => (
+                return (
                 <article key={subject.id} className="rounded-2xl border border-border p-4">
                   <form
                     action={updateSubject}
@@ -310,23 +228,29 @@ export default async function SemesterDetailPage({
                       </span>
                     </div>
 
-                    <form action={deleteSubject}>
-                      <input type="hidden" name="semester_id" value={semester.id} />
-                      <input type="hidden" name="subject_id" value={subject.id} />
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10"
-                      >
-                        <Trash2 className="size-4" />
-                        Delete
-                      </button>
-                    </form>
+                    <DeleteConfirmDialog
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10"
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
+                        </button>
+                      }
+                      title={`Delete ${subject.subject_code}?`}
+                      description="This subject will be permanently deleted. This action cannot be undone."
+                      confirmLabel="Delete subject"
+                      pendingLabel="Deleting..."
+                      errorMessage="Something went wrong deleting this subject. Please try again."
+                      onConfirm={handleDeleteSubject}
+                    />
                   </div>
                 </article>
-              ))
+                )
+              })
             )}
-          </div>
-        </section>
+        </div>
       </section>
     </main>
   )
