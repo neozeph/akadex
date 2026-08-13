@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -26,20 +27,26 @@ export function AuthForm({ mode }: AuthFormProps) {
     setMessage(null)
 
     if (mode === "register") {
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
       if (error) {
         setMessage(error.message)
+      } else if (signUpData.session) {
+        router.push("/dashboard")
+        router.refresh()
       } else {
-        setMessage("Account created. Check your email if confirmation is enabled.")
+        setMessage(
+          `Your account was created. Check ${email} for a confirmation email and click the link inside it to activate your account before signing in.`,
+        )
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
@@ -90,9 +97,16 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="password">
-          Password
-        </label>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="text-sm font-medium text-foreground" htmlFor="password">
+            Password
+          </label>
+          {mode === "login" ? (
+            <Link className="text-sm font-medium text-foreground underline" href="/forgot-password">
+              Forgot password?
+            </Link>
+          ) : null}
+        </div>
         <Input
           id="password"
           type="password"

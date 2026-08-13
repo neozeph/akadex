@@ -1,8 +1,8 @@
-# ACADEX Architecture Document
+# AKADEKS Architecture Document
 
 ## System Architecture
 
-ACADEX uses a simple full-stack web architecture:
+AKADEKS uses a simple full-stack web architecture:
 
 Frontend (Next.js)
 -> Supabase Auth

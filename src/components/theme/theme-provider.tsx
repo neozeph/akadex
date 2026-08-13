@@ -47,13 +47,19 @@ export function ThemeProvider({ children }: Readonly<{ children: React.ReactNode
       ? storedTheme
       : "system"
 
-    const frame = window.requestAnimationFrame(() => {
+    // Deferred via queueMicrotask rather than requestAnimationFrame:
+    // rAF callbacks are suspended entirely while
+    // `document.visibilityState !== "visible"` (a backgrounded/minimized
+    // tab, or one restored inactive), which left `mounted` — and
+    // therefore the real theme — stuck on its default indefinitely in
+    // that case. Microtasks aren't subject to that throttling, so this
+    // still satisfies the lint rule against calling setState directly in
+    // an effect body without inheriting rAF's visibility fragility.
+    queueMicrotask(() => {
       setThemeState(initialTheme)
       setSystemTheme(getSystemTheme())
       setMounted(true)
     })
-
-    return () => window.cancelAnimationFrame(frame)
   }, [])
 
   React.useEffect(() => {

@@ -45,7 +45,7 @@ export function Journey() {
             From your first semester to your final milestone.
           </h2>
           <p className="mt-4 text-lg leading-8 text-muted-foreground">
-            Acadex supports every chapter of your academic path with a journey that feels grounded, motivating, and easy to follow.
+            Akadex supports every chapter of your academic path with a journey that feels grounded, motivating, and easy to follow.
           </p>
         </div>
 

@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { GRADE_OPTIONS } from "@/lib/grades"
 
 async function getAuthedSupabase() {
@@ -21,14 +22,14 @@ async function getAuthedSupabase() {
   })
 }
 
-async function getAuthedUserId(supabase: Awaited<ReturnType<typeof getAuthedSupabase>>) {
-  const { data, error } = await supabase.auth.getClaims()
+async function getAuthedUserId() {
+  const user = await getAuthenticatedUser()
 
-  if (error || !data?.claims?.sub) {
+  if (!user) {
     throw new Error("Unauthorized")
   }
 
-  return data.claims.sub
+  return user.id
 }
 
 async function ensureSemesterOwnership(
@@ -65,7 +66,7 @@ function parseOptionalGrade(value: string) {
 export async function createSubject(formData: FormData) {
   const supabase = await getAuthedSupabase()
   const semesterId = String(formData.get("semester_id") ?? "")
-  const subjectCode = String(formData.get("subject_code") ?? "").trim()
+  const subjectCode = String(formData.get("subject_code") ?? "").trim().toUpperCase()
   const subjectName = String(formData.get("subject_name") ?? "").trim()
   const unitsValue = String(formData.get("units") ?? "").trim()
   const gradeValue = String(formData.get("grade") ?? "").trim()
@@ -74,7 +75,7 @@ export async function createSubject(formData: FormData) {
     throw new Error("Subject code, name, and units are required.")
   }
 
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
   await ensureSemesterOwnership(supabase, semesterId, userId)
 
   const units = Number(unitsValue)
@@ -106,7 +107,7 @@ export async function updateSubject(formData: FormData) {
   const supabase = await getAuthedSupabase()
   const semesterId = String(formData.get("semester_id") ?? "")
   const subjectId = String(formData.get("subject_id") ?? "")
-  const subjectCode = String(formData.get("subject_code") ?? "").trim()
+  const subjectCode = String(formData.get("subject_code") ?? "").trim().toUpperCase()
   const subjectName = String(formData.get("subject_name") ?? "").trim()
   const unitsValue = String(formData.get("units") ?? "").trim()
   const gradeValue = String(formData.get("grade") ?? "").trim()
@@ -115,7 +116,7 @@ export async function updateSubject(formData: FormData) {
     throw new Error("Subject code, name, and units are required.")
   }
 
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
   await ensureSemesterOwnership(supabase, semesterId, userId)
 
   const units = Number(unitsValue)
@@ -154,7 +155,7 @@ export async function deleteSubject(formData: FormData) {
     throw new Error("Subject id is required.")
   }
 
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
   await ensureSemesterOwnership(supabase, semesterId, userId)
 
   const { error } = await supabase

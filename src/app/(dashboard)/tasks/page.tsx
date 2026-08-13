@@ -1,18 +1,15 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { PencilLine, Save, Search, X } from "lucide-react"
+import { Search, X } from "lucide-react"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { getSupabaseClaims } from "@/lib/supabase/session"
-import {
-  formatTaskPriority,
-  formatTaskStatus,
-  TASK_PRIORITY_OPTIONS,
-  TASK_STATUS_OPTIONS,
-} from "@/lib/tasks"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { formatTaskStatus, TASK_STATUS_OPTIONS } from "@/lib/tasks"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/ui/page-header"
 import { TaskBoard } from "@/components/tasks/task-board"
+import { CreateTaskDialog } from "@/components/tasks/create-task-dialog"
 
 import { createTask, deleteTask, setTaskCompletion, updateTask } from "./actions"
 
@@ -35,6 +32,20 @@ function buildTasksHref(current: TasksSearchParams, next: Partial<TasksSearchPar
   return Object.keys(cleanedQuery).length > 0 ? { pathname: "/tasks", query: cleanedQuery } : "/tasks"
 }
 
+/**
+ * Local calendar date as YYYY-MM-DD, computed once on the server per
+ * request and passed down as a plain string prop. TaskBoard/TaskCard only
+ * ever compare due_date strings against this value — they never call
+ * `Date` themselves — so the date-grouping UI can't diverge between the
+ * server render and the first client render.
+ */
+function toISODate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 async function getTasksPageData(searchParams: TasksSearchParams) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
@@ -43,13 +54,13 @@ async function getTasksPageData(searchParams: TasksSearchParams) {
     },
   })
 
-  const { data: claimsResult } = await getSupabaseClaims()
+  const user = await getAuthenticatedUser()
 
-  if (!claimsResult?.claims?.sub) {
+  if (!user) {
     redirect("/login")
   }
 
-  const userId = claimsResult.claims.sub
+  const userId = user.id
 
   const [tasksResult] = await Promise.all([
     supabase
@@ -102,44 +113,20 @@ export default async function TasksPage({
     new Set(allTasks.flatMap((task) => (Array.isArray(task.tags) ? task.tags : []))),
   ).sort()
 
-  const taskCounts = {
-    total: allTasks.length,
-    todo: allTasks.filter((task) => task.status === "todo").length,
-    inProgress: allTasks.filter((task) => task.status === "in_progress").length,
-    done: allTasks.filter((task) => task.status === "done").length,
-  }
+  const now = new Date()
+  const todayISO = toISODate(now)
+  const tomorrowISO = toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
 
   return (
     <main className="space-y-6">
-      <section className="rounded-[2rem] border border-border bg-card p-8 shadow-sm">
-        <p className="text-sm font-semibold tracking-[0.25em] text-muted-foreground uppercase">
-          Tasks
-        </p>
-        <h1 className="mt-4 text-3xl font-semibold">Your academic todo list</h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Keep assignments, projects, and deadlines organized around your subjects.
-        </p>
+      <PageHeader
+        title="Tasks"
+        description="Manage your academic and personal tasks."
+        action={<CreateTaskDialog onCreate={createTask} />}
+      />
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-2xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">Total</p>
-            <p className="mt-3 text-3xl font-semibold">{taskCounts.total}</p>
-          </article>
-          <article className="rounded-2xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">To do</p>
-            <p className="mt-3 text-3xl font-semibold">{taskCounts.todo}</p>
-          </article>
-          <article className="rounded-2xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">In progress</p>
-            <p className="mt-3 text-3xl font-semibold">{taskCounts.inProgress}</p>
-          </article>
-          <article className="rounded-2xl border border-border p-4">
-            <p className="text-sm text-muted-foreground">Done</p>
-            <p className="mt-3 text-3xl font-semibold">{taskCounts.done}</p>
-          </article>
-        </div>
-
-        <div className="mt-6 space-y-4">
+      <section className="rounded-[2rem] border border-border bg-card p-4 shadow-sm">
+        <div className="space-y-4">
           <form action="/tasks" method="get" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -206,125 +193,15 @@ export default async function TasksPage({
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <form
-          action={createTask}
-          className="space-y-4 rounded-[2rem] border border-border/60 bg-card/70 p-6 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
-        >
-          <div>
-            <h2 className="inline-flex items-center gap-2 text-xl font-semibold">
-              <PencilLine className="size-4 text-muted-foreground" />
-              New task
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Add one academic task at a time and keep it focused.
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="title">
-              Task title
-            </label>
-            <input
-              id="title"
-              name="title"
-              placeholder="Finish thesis chapter 1"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="description">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={4}
-              placeholder="Add notes or checklist items"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-foreground"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="tags">
-              Tags
-            </label>
-            <input
-              id="tags"
-              name="tags"
-              placeholder="thesis, sql, capstone"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-2 block text-sm font-medium" htmlFor="due_date">
-                Due date
-              </label>
-              <input
-                id="due_date"
-                name="due_date"
-                type="date"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium" htmlFor="priority">
-                Priority
-              </label>
-              <select
-                id="priority"
-                name="priority"
-                defaultValue="medium"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-              >
-                {TASK_PRIORITY_OPTIONS.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {formatTaskPriority(priority)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="status">
-              Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              defaultValue="todo"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
-            >
-              {TASK_STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {formatTaskStatus(status)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-          >
-            <Save className="size-4" />
-            Save task
-          </button>
-        </form>
-
-        <TaskBoard
-          tasks={tasks}
-          onDeleteTask={deleteTask}
-          onUpdateTask={updateTask}
-          onSetTaskCompletion={setTaskCompletion}
-        />
-      </section>
+      <TaskBoard
+        tasks={tasks}
+        hasActiveFilters={activeFilterCount > 0}
+        todayISO={todayISO}
+        tomorrowISO={tomorrowISO}
+        onDeleteTask={deleteTask}
+        onUpdateTask={updateTask}
+        onSetTaskCompletion={setTaskCompletion}
+      />
     </main>
   )
 }

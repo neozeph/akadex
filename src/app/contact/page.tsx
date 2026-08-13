@@ -6,25 +6,25 @@ import { Button } from "@/components/ui/button"
 import { PageShell } from "@/components/landing/PageShell"
 
 export const metadata: Metadata = {
-  title: "Contact Acadex",
-  description: "Reach out to the Acadex team through GitHub or email for questions, feedback, or ideas.",
+  title: "Contact Akadex",
+  description: "Reach out to the Akadex team through GitHub or email for questions, feedback, or ideas.",
 }
 
 export default function ContactPage() {
   return (
     <PageShell
       eyebrow="Contact"
-      title="Say hello and share what you are building with Acadex."
+      title="Say hello and share what you are building with Akadex."
       description="Whether you have a question, a feature idea, or want to talk through your academic workflow, the door is open."
       actions={
         <>
-          <Link href="mailto:hello@acadex.app">
+          <Link href="mailto:hello@akadeks.app">
             <Button size="lg" className="gap-2">
               <Mail className="size-4" />
               Email the team
             </Button>
           </Link>
-          <Link href="https://github.com/neozeph/acadex" target="_blank" rel="noreferrer">
+          <Link href="https://github.com/neozeph/akadeks" target="_blank" rel="noreferrer">
             <Button variant="outline" size="lg" className="gap-2">
               <GitBranch className="size-4" />
               Open GitHub
@@ -56,8 +56,8 @@ export default function ContactPage() {
           </p>
           <div className="mt-6 rounded-[1.2rem] border border-border/70 bg-background/70 p-5">
             <p className="text-sm text-muted-foreground">Email</p>
-            <a href="mailto:hello@acadex.app" className="mt-2 inline-flex items-center gap-2 text-base font-medium text-foreground hover:text-emerald-600">
-              hello@acadex.app
+            <a href="mailto:hello@akadeks.app" className="mt-2 inline-flex items-center gap-2 text-base font-medium text-foreground hover:text-emerald-600">
+              hello@akadeks.app
               <ArrowRight className="size-4" />
             </a>
           </div>

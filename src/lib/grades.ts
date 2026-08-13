@@ -2,6 +2,32 @@ export const GRADE_OPTIONS = [
   1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 5.0,
 ] as const
 
+export type GradableSubject = {
+  grade: number | string | null
+  units: number | string
+}
+
+/**
+ * Weighted-average GWA across graded subjects only. Ungraded subjects
+ * (grade === null) are excluded from both the numerator and denominator.
+ * Returns null when there are no graded units, so callers don't divide by zero.
+ */
+export function calculateGwa(subjects: GradableSubject[]): number | null {
+  const gradedSubjects = subjects.filter((subject) => subject.grade !== null)
+
+  const totalGradedUnits = gradedSubjects.reduce(
+    (sum, subject) => sum + Number(subject.units),
+    0,
+  )
+
+  const weightedSum = gradedSubjects.reduce(
+    (sum, subject) => sum + Number(subject.units) * Number(subject.grade),
+    0,
+  )
+
+  return totalGradedUnits > 0 ? weightedSum / totalGradedUnits : null
+}
+
 export function formatGrade(value: number | null | undefined) {
   if (value === null || value === undefined) {
     return "No grade"

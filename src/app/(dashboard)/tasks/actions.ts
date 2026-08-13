@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, parseTaskTags } from "@/lib/tasks"
 
 async function getAuthedSupabase() {
@@ -16,14 +17,14 @@ async function getAuthedSupabase() {
   })
 }
 
-async function getAuthedUserId(supabase: Awaited<ReturnType<typeof getAuthedSupabase>>) {
-  const { data, error } = await supabase.auth.getClaims()
+async function getAuthedUserId() {
+  const user = await getAuthenticatedUser()
 
-  if (error || !data?.claims?.sub) {
+  if (!user) {
     throw new Error("Unauthorized")
   }
 
-  return data.claims.sub
+  return user.id
 }
 
 async function ensureTaskOwnership(
@@ -61,7 +62,7 @@ function parseStatus(value: string) {
 
 export async function createTask(formData: FormData) {
   const supabase = await getAuthedSupabase()
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
 
   const title = String(formData.get("title") ?? "").trim()
   const description = String(formData.get("description") ?? "").trim()
@@ -94,7 +95,7 @@ export async function createTask(formData: FormData) {
 
 export async function updateTask(formData: FormData) {
   const supabase = await getAuthedSupabase()
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
 
   const taskId = String(formData.get("task_id") ?? "")
   const title = String(formData.get("title") ?? "").trim()
@@ -133,7 +134,7 @@ export async function updateTask(formData: FormData) {
 
 export async function deleteTask(formData: FormData) {
   const supabase = await getAuthedSupabase()
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
   const taskId = String(formData.get("task_id") ?? "")
 
   if (!taskId) {
@@ -154,7 +155,7 @@ export async function deleteTask(formData: FormData) {
 
 export async function setTaskCompletion(formData: FormData) {
   const supabase = await getAuthedSupabase()
-  const userId = await getAuthedUserId(supabase)
+  const userId = await getAuthedUserId()
   const taskId = String(formData.get("task_id") ?? "")
   const completed = String(formData.get("completed") ?? "") === "true"
 
