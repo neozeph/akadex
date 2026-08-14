@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { MAX_POMODORO_MINUTES, MIN_POMODORO_MINUTES } from "@/lib/pomodoro"
 
 async function getAuthedSupabase() {
   const cookieStore = await cookies()
@@ -24,6 +25,52 @@ async function getAuthedUserId() {
   }
 
   return user.id
+}
+
+function parseDurationMinutes(value: string, label: string) {
+  const minutes = Number(value)
+
+  if (!Number.isInteger(minutes) || minutes < MIN_POMODORO_MINUTES || minutes > MAX_POMODORO_MINUTES) {
+    throw new Error(
+      `${label} must be a whole number between ${MIN_POMODORO_MINUTES} and ${MAX_POMODORO_MINUTES} minutes.`,
+    )
+  }
+
+  return minutes
+}
+
+export async function updatePomodoroPreferences(formData: FormData) {
+  const supabase = await getAuthedSupabase()
+  const userId = await getAuthedUserId()
+
+  const focusDurationMinutes = parseDurationMinutes(
+    String(formData.get("focus_duration_minutes") ?? ""),
+    "Focus duration",
+  )
+  const breakDurationMinutes = parseDurationMinutes(
+    String(formData.get("break_duration_minutes") ?? ""),
+    "Break duration",
+  )
+
+  // Same upsert-by-id pattern as settings/actions.ts's updateDisplayName:
+  // creates the profiles row if it's somehow missing instead of requiring a
+  // separate preferences table or a parallel "does a row exist" branch.
+  const { error } = await supabase.from("profiles").upsert(
+    {
+      id: userId,
+      focus_duration_minutes: focusDurationMinutes,
+      break_duration_minutes: breakDurationMinutes,
+    },
+    {
+      onConflict: "id",
+    },
+  )
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath("/pomodoro")
 }
 
 export async function logPomodoroSession(formData: FormData) {

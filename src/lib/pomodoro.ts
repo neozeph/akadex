@@ -1,0 +1,4 @@
+export const DEFAULT_FOCUS_MINUTES = 25
+export const DEFAULT_BREAK_MINUTES = 5
+export const MIN_POMODORO_MINUTES = 1
+export const MAX_POMODORO_MINUTES = 120

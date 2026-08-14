@@ -47,3 +47,16 @@ export function getSubjectStatus(grade: number | null | undefined) {
 
   return { label: "Failed", tone: "danger" as const }
 }
+
+/**
+ * Shared tone -> visual style for getSubjectStatus(), so SubjectCard and the
+ * Subject Workspace summary render status identically instead of each
+ * defining its own copy. Sage for passed, terracotta for failed (the app's
+ * existing attention color), muted for ungraded — gold/highlight is
+ * deliberately not used here, it stays reserved for achievements.
+ */
+export const SUBJECT_STATUS_BADGE_CLASSES: Record<"success" | "neutral" | "danger", string> = {
+  success: "border-transparent bg-primary/10 text-primary",
+  neutral: "border-border bg-muted text-muted-foreground",
+  danger: "border-transparent bg-terracotta/15 text-terracotta",
+}

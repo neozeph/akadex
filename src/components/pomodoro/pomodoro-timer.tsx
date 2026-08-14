@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { Pause, Play, RotateCcw, CheckCircle2, Coffee } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DEFAULT_BREAK_MINUTES, DEFAULT_FOCUS_MINUTES } from "@/lib/pomodoro"
 
 type Mode = "focus" | "break"
 
@@ -14,8 +15,8 @@ type PomodoroTimerProps = {
 }
 
 export function PomodoroTimer({
-  focusMinutes = 25,
-  breakMinutes = 5,
+  focusMinutes = DEFAULT_FOCUS_MINUTES,
+  breakMinutes = DEFAULT_BREAK_MINUTES,
   onCompleteSession,
 }: PomodoroTimerProps) {
   const [mode, setMode] = useState<Mode>("focus")
@@ -74,6 +75,26 @@ export function PomodoroTimer({
 
     return () => window.clearInterval(interval)
   }, [isRunning, mode, focusMinutes, breakMinutes, initialSeconds, onCompleteSession, startTransition])
+
+  // Saved preferences (focusMinutes/breakMinutes) can change after mount —
+  // the Settings dialog updates them via a prop, not local state. While the
+  // timer is idle, the visible countdown should reflect the new duration
+  // right away. While it's running, we deliberately do nothing here: the
+  // active countdown keeps ticking from wherever it is, and the new value is
+  // simply what resetTimer()/toggleMode()/the next natural completion will
+  // use, since those all read the live focusMinutes/breakMinutes props
+  // directly rather than a stale copy.
+  const previousDurationsRef = useRef({ focusMinutes, breakMinutes })
+
+  useEffect(() => {
+    const previous = previousDurationsRef.current
+    const changed = previous.focusMinutes !== focusMinutes || previous.breakMinutes !== breakMinutes
+    previousDurationsRef.current = { focusMinutes, breakMinutes }
+
+    if (changed && !isRunning) {
+      setSecondsLeft(mode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+    }
+  }, [focusMinutes, breakMinutes, isRunning, mode])
 
   function resetTimer() {
     setIsRunning(false)

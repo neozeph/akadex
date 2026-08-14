@@ -2,9 +2,10 @@ import { redirect } from "next/navigation"
 
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 
-import { logPomodoroSession } from "./actions"
+import { logPomodoroSession, updatePomodoroPreferences } from "./actions"
 import { getPomodoroPageData } from "./data"
 import { PomodoroTimer } from "@/components/pomodoro/pomodoro-timer"
+import { PomodoroSettingsDialog } from "@/components/pomodoro/pomodoro-settings-dialog"
 import { PageHeader } from "@/components/ui/page-header"
 import { Clock3, Flame, Hourglass, Zap } from "lucide-react"
 
@@ -30,13 +31,28 @@ export default async function PomodoroPage() {
   }
 
   const userId = user.id
-  const { recentSessions, completedTodayCount, totalFocusMinutes } = await getPomodoroPageData(userId)
+  const { recentSessions, completedTodayCount, totalFocusMinutes, focusDurationMinutes, breakDurationMinutes } =
+    await getPomodoroPageData(userId)
 
   return (
     <main className="space-y-6">
-      <PageHeader title="Pomodoro" description="Stay focused with structured study sessions." />
+      <PageHeader
+        title="Pomodoro"
+        description="Stay focused with structured study sessions."
+        action={
+          <PomodoroSettingsDialog
+            focusMinutes={focusDurationMinutes}
+            breakMinutes={breakDurationMinutes}
+            onSave={updatePomodoroPreferences}
+          />
+        }
+      />
 
-      <PomodoroTimer onCompleteSession={logPomodoroSession} />
+      <PomodoroTimer
+        focusMinutes={focusDurationMinutes}
+        breakMinutes={breakDurationMinutes}
+        onCompleteSession={logPomodoroSession}
+      />
 
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
         <article className="rounded-[2rem] border border-border bg-card p-5 shadow-sm">
@@ -69,8 +85,10 @@ export default async function PomodoroPage() {
               <Hourglass className="size-5" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Default cycle</p>
-              <p className="mt-1 text-2xl font-semibold">25 / 5</p>
+              <p className="text-sm text-muted-foreground">Your cycle</p>
+              <p className="mt-1 text-2xl font-semibold">
+                {focusDurationMinutes} / {breakDurationMinutes}
+              </p>
             </div>
           </div>
         </article>

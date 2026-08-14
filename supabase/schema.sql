@@ -235,6 +235,32 @@ create table if not exists public.pomodoro_sessions (
   updated_at timestamptz not null default now()
 );
 
+-- Sprint 6: per-user customizable Pomodoro durations, stored on the
+-- existing profiles row rather than a new preferences table. Defaults match
+-- the app's previous hardcoded 25/5 cycle, so every existing user keeps
+-- behaving exactly as before until they explicitly change it. pomodoro_sessions
+-- itself is untouched — this only affects future sessions' configured length,
+-- never past rows.
+alter table public.profiles
+add column if not exists focus_duration_minutes integer not null default 25;
+
+alter table public.profiles
+add column if not exists break_duration_minutes integer not null default 5;
+
+alter table public.profiles
+drop constraint if exists profiles_focus_duration_minutes_check;
+
+alter table public.profiles
+add constraint profiles_focus_duration_minutes_check
+check (focus_duration_minutes between 1 and 120);
+
+alter table public.profiles
+drop constraint if exists profiles_break_duration_minutes_check;
+
+alter table public.profiles
+add constraint profiles_break_duration_minutes_check
+check (break_duration_minutes between 1 and 120);
+
 create index if not exists semesters_user_id_idx on public.semesters (user_id);
 create index if not exists subjects_user_id_idx on public.subjects (user_id);
 create index if not exists subjects_semester_id_idx on public.subjects (semester_id);

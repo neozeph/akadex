@@ -144,6 +144,8 @@ export async function createTask(formData: FormData) {
 
     revalidatePath("/tasks")
     revalidatePath("/dashboard")
+    revalidatePath("/semesters/[semesterId]", "page")
+    revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
     return
   }
 
@@ -164,6 +166,8 @@ export async function createTask(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
 }
 
 export async function updateTask(formData: FormData) {
@@ -208,6 +212,8 @@ export async function updateTask(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
 }
 
 export async function deleteTask(formData: FormData) {
@@ -229,6 +235,8 @@ export async function deleteTask(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
 }
 
 export async function setTaskCompletion(formData: FormData) {
@@ -257,4 +265,6 @@ export async function setTaskCompletion(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
 }
