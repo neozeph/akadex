@@ -73,3 +73,59 @@ export function getSchoolYearStartOptions(currentYear: number) {
 
   return Array.from({ length: end - start + 1 }, (_, index) => start + index)
 }
+
+const SHORT_TERM_LABELS: Record<string, string> = { "1": "S1", "2": "S2", summer: "Sum" }
+
+/**
+ * Compact "Y1 · S1" tick label for chart axes — same structured/legacy
+ * fallback formatSemesterLabel() already uses, just abbreviated, so an
+ * unconverted (pre-Sprint-3.6) semester still renders something sensible
+ * instead of a blank tick.
+ */
+export function formatSemesterShortLabel(semester: StructuredSemester) {
+  const termLabel = formatTermLabel(semester.term)
+
+  if (semester.year_level && termLabel) {
+    const shortTerm = SHORT_TERM_LABELS[semester.term as string] ?? termLabel
+    return `Y${semester.year_level} · ${shortTerm}`
+  }
+
+  return semester.title?.trim() || "Untitled semester"
+}
+
+const TERM_SORT_ORDER: Record<string, number> = { "1": 1, "2": 2, summer: 3 }
+
+/**
+ * Chronological comparator for charts/analytics — orders by school_year_start,
+ * then year_level, then term (1st < 2nd < Summer), NOT by created_at (which
+ * only reflects when the row was entered into Akadex, not when the semester
+ * actually happened).
+ *
+ * Legacy (pre-Sprint-3.6) rows with null year_level/term/school_year_start
+ * can't be chronologically placed without parsing free-text title — which
+ * Sprint 3.6 explicitly chose never to do — so every legacy row sorts after
+ * every structured row, and ties among legacy rows fall back to created_at
+ * as the only remaining reliable, deterministic signal.
+ */
+export function compareSemestersChronologically<
+  T extends StructuredSemester & { created_at: string },
+>(a: T, b: T): number {
+  const aStructured = a.year_level !== null && a.term !== null && a.school_year_start !== null
+  const bStructured = b.year_level !== null && b.term !== null && b.school_year_start !== null
+
+  if (aStructured && bStructured) {
+    if (a.school_year_start !== b.school_year_start) {
+      return (a.school_year_start as number) - (b.school_year_start as number)
+    }
+    if (a.year_level !== b.year_level) {
+      return (a.year_level as number) - (b.year_level as number)
+    }
+    return (TERM_SORT_ORDER[a.term as string] ?? 99) - (TERM_SORT_ORDER[b.term as string] ?? 99)
+  }
+
+  if (aStructured !== bStructured) {
+    return aStructured ? -1 : 1
+  }
+
+  return a.created_at.localeCompare(b.created_at)
+}

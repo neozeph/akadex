@@ -114,6 +114,17 @@ create table if not exists public.tasks (
 alter table public.tasks
 add column if not exists tags text[] not null default '{}'::text[];
 
+-- Sprint 7.2: trustworthy completion timestamp for Task Analytics.
+-- `updated_at` cannot serve this purpose — it also changes on title/
+-- priority/due-date/subject edits, not just completions — so completion
+-- trends need their own column. Nullable and additive: every existing row
+-- (including existing status = 'done' rows) gets completed_at = null, since
+-- we have no trustworthy historical record of when those actually
+-- completed. Analytics treats those as "legacy undated completions" rather
+-- than guessing a date from updated_at.
+alter table public.tasks
+add column if not exists completed_at timestamptz;
+
 -- Sprint 4: recurring task series. A series is the recurrence "template";
 -- individual dated tasks (occurrences) are ordinary rows in public.tasks
 -- linked back via series_id, so each occurrence keeps its own independent
@@ -234,6 +245,60 @@ create table if not exists public.pomodoro_sessions (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Sprint 7 hotfix: server-side idempotency for session logging. The client
+-- generates one stable id per logical timer run and sends it on completion;
+-- a repeated completion request for the same (user_id, completion_id) must
+-- insert at most one row (see logPomodoroSession's upsert with
+-- ignoreDuplicates).
+alter table public.pomodoro_sessions
+add column if not exists completion_id uuid;
+
+-- Hotfix 7.2.1: plain (non-partial) unique index — the same fix already
+-- applied to tasks_series_due_date_unique for the identical reason.
+-- ON CONFLICT target inference cannot match a partial index unless the
+-- upsert's ON CONFLICT clause repeats the index's WHERE predicate, which
+-- supabase-js's upsert(..., { onConflict }) cannot express, so the original
+-- "where completion_id is not null" partial index silently could not be
+-- targeted by logPomodoroSession's onConflict: "user_id,completion_id".
+-- Standard Postgres unique-index semantics already treat every NULL as
+-- distinct from every other NULL, so a plain index still allows unlimited
+-- historical/legacy rows with completion_id = null while still enforcing
+-- uniqueness on real (user_id, completion_id) pairs — no partial predicate
+-- needed. Dropped and recreated without "if not exists" (rather than
+-- relying on "create ... if not exists", which would silently no-op and
+-- leave a previously-created partial index in place) so this migration
+-- self-heals an environment where the old partial index already exists.
+drop index if exists public.pomodoro_sessions_user_completion_id_key;
+
+create unique index pomodoro_sessions_user_completion_id_key
+on public.pomodoro_sessions (user_id, completion_id);
+
+-- Sprint 6: per-user customizable Pomodoro durations, stored on the
+-- existing profiles row rather than a new preferences table. Defaults match
+-- the app's previous hardcoded 25/5 cycle, so every existing user keeps
+-- behaving exactly as before until they explicitly change it. pomodoro_sessions
+-- itself is untouched — this only affects future sessions' configured length,
+-- never past rows.
+alter table public.profiles
+add column if not exists focus_duration_minutes integer not null default 25;
+
+alter table public.profiles
+add column if not exists break_duration_minutes integer not null default 5;
+
+alter table public.profiles
+drop constraint if exists profiles_focus_duration_minutes_check;
+
+alter table public.profiles
+add constraint profiles_focus_duration_minutes_check
+check (focus_duration_minutes between 1 and 120);
+
+alter table public.profiles
+drop constraint if exists profiles_break_duration_minutes_check;
+
+alter table public.profiles
+add constraint profiles_break_duration_minutes_check
+check (break_duration_minutes between 1 and 120);
 
 create index if not exists semesters_user_id_idx on public.semesters (user_id);
 create index if not exists subjects_user_id_idx on public.subjects (user_id);

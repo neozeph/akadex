@@ -46,6 +46,31 @@ async function ensureTaskOwnership(
 }
 
 /**
+ * Like ensureTaskOwnership, but also returns the task's current status —
+ * updateTask needs this to tell a real todo->done (or done->todo) transition
+ * apart from "still done, editing an unrelated field," which must NOT
+ * overwrite the original completed_at.
+ */
+async function getOwnedTaskStatus(
+  supabase: Awaited<ReturnType<typeof getAuthedSupabase>>,
+  taskId: string,
+  userId: string,
+) {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("status")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (error || !data) {
+    throw new Error("Task not found")
+  }
+
+  return data.status as string
+}
+
+/**
  * Never trusts a client-supplied subject id: confirms it exists and belongs
  * to the authenticated user before it's allowed to be stored on a task or
  * series. Empty input means "No Subject" and is left unvalidated (null).
@@ -144,9 +169,15 @@ export async function createTask(formData: FormData) {
 
     revalidatePath("/tasks")
     revalidatePath("/dashboard")
+    revalidatePath("/semesters/[semesterId]", "page")
+    revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+    revalidatePath("/analytics")
     return
   }
 
+  // Recurring occurrences always insert as "todo" (see recurrence.ts), so
+  // this direct-creation completed_at handling only ever applies here —
+  // creating a task straight into "Done" is a real (if rare) completion.
   const { error } = await supabase.from("tasks").insert({
     user_id: userId,
     subject_id: subjectId,
@@ -156,6 +187,7 @@ export async function createTask(formData: FormData) {
     due_date: dueDateValue || null,
     priority,
     status,
+    completed_at: status === "done" ? new Date().toISOString() : null,
   })
 
   if (error) {
@@ -164,6 +196,9 @@ export async function createTask(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+  revalidatePath("/analytics")
 }
 
 export async function updateTask(formData: FormData) {
@@ -182,8 +217,18 @@ export async function updateTask(formData: FormData) {
     throw new Error("Task title is required.")
   }
 
-  await ensureTaskOwnership(supabase, taskId, userId)
+  const currentStatus = await getOwnedTaskStatus(supabase, taskId, userId)
   const subjectId = await resolveSubjectId(supabase, userId, String(formData.get("subject_id") ?? ""))
+
+  // Only a real todo/in_progress <-> done transition touches completed_at.
+  // Staying "done" while editing an unrelated field (title, priority, due
+  // date, subject) must never overwrite the original completion timestamp.
+  const completedAtPatch =
+    status === "done" && currentStatus !== "done"
+      ? { completed_at: new Date().toISOString() }
+      : status !== "done" && currentStatus === "done"
+        ? { completed_at: null }
+        : {}
 
   // Editing an occurrence only ever touches this one `tasks` row — it never
   // writes back to task_series, so historical/other occurrences in the same
@@ -198,6 +243,7 @@ export async function updateTask(formData: FormData) {
       priority,
       status,
       subject_id: subjectId,
+      ...completedAtPatch,
     })
     .eq("id", taskId)
     .eq("user_id", userId)
@@ -208,6 +254,9 @@ export async function updateTask(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+  revalidatePath("/analytics")
 }
 
 export async function deleteTask(formData: FormData) {
@@ -229,6 +278,9 @@ export async function deleteTask(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+  revalidatePath("/analytics")
 }
 
 export async function setTaskCompletion(formData: FormData) {
@@ -243,10 +295,15 @@ export async function setTaskCompletion(formData: FormData) {
 
   await ensureTaskOwnership(supabase, taskId, userId)
 
+  // Every call here is an explicit user action to mark complete or
+  // incomplete (the planner checkbox), never an unrelated-field edit — so
+  // marking complete always stamps a fresh completed_at, including
+  // re-completing a task that was previously uncompleted.
   const { error } = await supabase
     .from("tasks")
     .update({
       status: completed ? "done" : "todo",
+      completed_at: completed ? new Date().toISOString() : null,
     })
     .eq("id", taskId)
     .eq("user_id", userId)
@@ -257,4 +314,7 @@ export async function setTaskCompletion(formData: FormData) {
 
   revalidatePath("/tasks")
   revalidatePath("/dashboard")
+  revalidatePath("/semesters/[semesterId]", "page")
+  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+  revalidatePath("/analytics")
 }

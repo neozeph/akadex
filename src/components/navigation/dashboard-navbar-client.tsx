@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, NotebookTabs, Settings2, SquareCheckBig, TimerReset } from "lucide-react"
+import { ChartNoAxesCombined, LayoutDashboard, NotebookTabs, Settings2, SquareCheckBig, TimerReset } from "lucide-react"
 
 import { BrandMark } from "@/components/brand/brand-mark"
 import { SignOutButton } from "@/components/auth/sign-out-button"
@@ -14,10 +14,14 @@ const links = [
   { href: "/tasks", label: "Tasks", icon: SquareCheckBig },
   { href: "/semesters", label: "Semesters", icon: NotebookTabs },
   { href: "/pomodoro", label: "Pomodoro", icon: TimerReset },
+  { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
   { href: "/settings", label: "Settings", icon: Settings2 },
 ]
 
-const mobileTabs = links.filter((link) => link.href !== "/settings")
+// The bottom tab bar is a fixed 4-column grid sized for the highest-
+// frequency destinations — adding a 5th item would cram it. Analytics (like
+// Settings) is instead reachable from the mobile top bar's icon row below.
+const mobileTabs = links.filter((link) => link.href !== "/settings" && link.href !== "/analytics")
 
 type DashboardNavbarClientProps = {
   displayName: string
@@ -87,6 +91,19 @@ export function DashboardNavbarClient({ displayName, initials }: DashboardNavbar
           </Link>
 
           <div className="flex items-center gap-1.5">
+            <Link
+              href="/analytics"
+              aria-label="Analytics"
+              aria-current={pathname === "/analytics" ? "page" : undefined}
+              className={cn(
+                "flex size-8 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                pathname === "/analytics"
+                  ? "border-primary/50 bg-accent text-primary"
+                  : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <ChartNoAxesCombined className="size-4" />
+            </Link>
             <Link
               href="/settings"
               aria-label="Settings"

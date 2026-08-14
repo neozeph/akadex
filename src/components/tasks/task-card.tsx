@@ -28,6 +28,13 @@ type TaskCardProps = {
   onUpdateTask: (formData: FormData) => Promise<void>
   onDeleteTask: (formData: FormData) => Promise<void>
   onSetTaskCompletion: (formData: FormData) => Promise<void>
+  /**
+   * Opt-in subtle due-date text (e.g. "Overdue", "Today", "Aug 14").
+   * Planner columns already imply the date via their header, so they never
+   * pass this; contexts that show a flat, non-grouped list (the Subject
+   * Workspace) do, since the ordering wouldn't otherwise be legible.
+   */
+  dueDateLabel?: string | null
 }
 
 export function TaskCard({
@@ -36,6 +43,7 @@ export function TaskCard({
   onUpdateTask,
   onDeleteTask,
   onSetTaskCompletion,
+  dueDateLabel,
 }: TaskCardProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const isDone = task.status === "done"
@@ -109,6 +117,17 @@ export function TaskCard({
             {task.subject ? (
               <p className="mt-0.5 truncate text-[0.68rem] font-medium text-muted-foreground">
                 {task.subject.subject_code} · {task.subject.subject_name}
+              </p>
+            ) : null}
+
+            {dueDateLabel ? (
+              <p
+                className={cn(
+                  "mt-0.5 text-[0.68rem] font-medium",
+                  dueDateLabel === "Overdue" ? "text-terracotta" : "text-muted-foreground",
+                )}
+              >
+                {dueDateLabel}
               </p>
             ) : null}
           </button>

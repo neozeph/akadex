@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { Pause, Play, RotateCcw, CheckCircle2, Coffee } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DEFAULT_BREAK_MINUTES, DEFAULT_FOCUS_MINUTES } from "@/lib/pomodoro"
 
 type Mode = "focus" | "break"
 
@@ -14,8 +15,8 @@ type PomodoroTimerProps = {
 }
 
 export function PomodoroTimer({
-  focusMinutes = 25,
-  breakMinutes = 5,
+  focusMinutes = DEFAULT_FOCUS_MINUTES,
+  breakMinutes = DEFAULT_BREAK_MINUTES,
   onCompleteSession,
 }: PomodoroTimerProps) {
   const [mode, setMode] = useState<Mode>("focus")
@@ -24,6 +25,25 @@ export function PomodoroTimer({
   const [sessionsCompleted, setSessionsCompleted] = useState(0)
   const [isPending, startTransition] = useTransition()
   const startedAtRef = useRef<string | null>(null)
+
+  // One stable id per logical timer run, sent to the server so a repeated
+  // completion request (see below) can never insert twice for the same
+  // run. Regenerated only where a genuinely NEW run begins (reset, mode
+  // switch, or auto-advancing into the next mode after completion) — never
+  // on pause/resume, and never merely because the component re-rendered.
+  const sessionIdRef = useRef<string | null>(null)
+  if (sessionIdRef.current === null) {
+    sessionIdRef.current = crypto.randomUUID()
+  }
+
+  // Guards against handling the same zero-crossing more than once. React
+  // may invoke a state updater function more than once for a single
+  // logical update (Strict Mode does this deliberately in development to
+  // surface impure updaters) — completion side effects used to live inside
+  // exactly such an updater, which is what caused one finished session to
+  // log itself hundreds of times. Completion now only ever happens here, in
+  // a plain effect, gated by this ref.
+  const completionHandledRef = useRef(false)
 
   const initialSeconds = mode === "focus" ? focusMinutes * 60 : breakMinutes * 60
 
@@ -35,55 +55,101 @@ export function PomodoroTimer({
     return Math.max(0, Math.min(100, ((initialSeconds - secondsLeft) / initialSeconds) * 100))
   }, [initialSeconds, secondsLeft])
 
+  // Ticking is now a PURE decrement — no side effects inside the updater.
+  // It only ever counts down to 0 and stops there; it never itself decides
+  // what a "zero" means (that's the completion effect's job below).
   useEffect(() => {
     if (!isRunning) {
       return
     }
 
     const interval = window.setInterval(() => {
-      setSecondsLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval)
-          setIsRunning(false)
-
-          const completedSeconds = initialSeconds
-          const startedAt = startedAtRef.current ?? new Date(Date.now() - completedSeconds * 1000).toISOString()
-          const endedAt = new Date().toISOString()
-
-          if (mode === "focus") {
-            const formData = new FormData()
-            formData.set("duration", String(completedSeconds))
-            formData.set("completed", "true")
-            formData.set("started_at", startedAt)
-            formData.set("ended_at", endedAt)
-
-            startTransition(async () => {
-              await onCompleteSession(formData)
-              setSessionsCompleted((count) => count + 1)
-            })
-          }
-
-          setMode((currentMode) => (currentMode === "focus" ? "break" : "focus"))
-          startedAtRef.current = null
-          return mode === "focus" ? breakMinutes * 60 : focusMinutes * 60
-        }
-
-        return current - 1
-      })
+      setSecondsLeft((current) => (current > 0 ? current - 1 : 0))
     }, 1000)
 
     return () => window.clearInterval(interval)
-  }, [isRunning, mode, focusMinutes, breakMinutes, initialSeconds, onCompleteSession, startTransition])
+  }, [isRunning])
+
+  /**
+   * Fires exactly once per zero-crossing. Whenever secondsLeft is above
+   * zero, the guard is kept armed (false) — that covers every "a new run's
+   * duration is now in effect" case (reset, mode switch, completion's own
+   * mode-advance, or the idle-preference-sync effect below) without those
+   * call sites needing to touch the ref themselves. Only when secondsLeft
+   * is exactly 0 AND the guard hasn't already fired do we run completion:
+   * stop the timer, log the session (focus only, matching Sprint 6), and
+   * advance into the next mode with a fresh id for the next run.
+   */
+  useEffect(() => {
+    if (secondsLeft > 0) {
+      completionHandledRef.current = false
+      return
+    }
+
+    if (completionHandledRef.current) {
+      return
+    }
+    completionHandledRef.current = true
+
+    setIsRunning(false)
+
+    const completedSeconds = initialSeconds
+    const startedAt = startedAtRef.current ?? new Date(Date.now() - completedSeconds * 1000).toISOString()
+    const endedAt = new Date().toISOString()
+    const completionId = sessionIdRef.current as string
+
+    if (mode === "focus") {
+      const formData = new FormData()
+      formData.set("duration", String(completedSeconds))
+      formData.set("completed", "true")
+      formData.set("started_at", startedAt)
+      formData.set("ended_at", endedAt)
+      formData.set("completion_id", completionId)
+
+      startTransition(async () => {
+        await onCompleteSession(formData)
+        setSessionsCompleted((count) => count + 1)
+      })
+    }
+
+    startedAtRef.current = null
+    const nextMode: Mode = mode === "focus" ? "break" : "focus"
+    sessionIdRef.current = crypto.randomUUID()
+    setMode(nextMode)
+    setSecondsLeft(nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+  }, [secondsLeft, mode, initialSeconds, focusMinutes, breakMinutes, onCompleteSession, startTransition])
+
+  // Saved preferences (focusMinutes/breakMinutes) can change after mount —
+  // the Settings dialog updates them via a prop, not local state. While the
+  // timer is idle, the visible countdown should reflect the new duration
+  // right away. While it's running, we deliberately do nothing here: the
+  // active countdown keeps ticking from wherever it is, and the new value is
+  // simply what resetTimer()/toggleMode()/the next natural completion will
+  // use, since those all read the live focusMinutes/breakMinutes props
+  // directly rather than a stale copy.
+  const previousDurationsRef = useRef({ focusMinutes, breakMinutes })
+
+  useEffect(() => {
+    const previous = previousDurationsRef.current
+    const changed = previous.focusMinutes !== focusMinutes || previous.breakMinutes !== breakMinutes
+    previousDurationsRef.current = { focusMinutes, breakMinutes }
+
+    if (changed && !isRunning) {
+      setSecondsLeft(mode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+    }
+  }, [focusMinutes, breakMinutes, isRunning, mode])
 
   function resetTimer() {
     setIsRunning(false)
     startedAtRef.current = null
+    sessionIdRef.current = crypto.randomUUID()
     setSecondsLeft(mode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
   }
 
   function toggleMode(nextMode: Mode) {
     setIsRunning(false)
     startedAtRef.current = null
+    sessionIdRef.current = crypto.randomUUID()
     setMode(nextMode)
     setSecondsLeft(nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
   }

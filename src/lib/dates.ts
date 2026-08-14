@@ -85,3 +85,9 @@ export function formatFullDate(iso: string) {
   const date = parseISODate(iso)
   return `${FULL_MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`
 }
+
+/** "Aug 2026" — monthly bucket label for the Analytics All Time trend charts. `iso` may be any date within the month. */
+export function formatMonthYearLabel(iso: string) {
+  const date = parseISODate(iso)
+  return `${MONTH_LABELS[date.getMonth()]} ${date.getFullYear()}`
+}

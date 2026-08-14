@@ -25,6 +25,12 @@ type CreateTaskDialogProps = {
    * that date already selected, instead of a second creation path.
    */
   initialDueDate?: string
+  /**
+   * Pre-fills (but doesn't lock) the Subject field — used by the Subject
+   * Workspace's "+ Add Task" so the current subject is already selected.
+   * The field stays a normal editable Select; the user can still change it.
+   */
+  initialSubjectId?: string
 }
 
 /**
@@ -33,7 +39,13 @@ type CreateTaskDialogProps = {
  * their names, and createTask itself are unchanged — this only owns the
  * open/pending/error UI state around the same submission.
  */
-export function CreateTaskDialog({ onCreate, subjects = [], trigger, initialDueDate }: CreateTaskDialogProps) {
+export function CreateTaskDialog({
+  onCreate,
+  subjects = [],
+  trigger,
+  initialDueDate,
+  initialSubjectId,
+}: CreateTaskDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [isPending, startTransition] = React.useTransition()
@@ -89,7 +101,7 @@ export function CreateTaskDialog({ onCreate, subjects = [], trigger, initialDueD
             disabled={isPending}
             subjects={subjects}
             showRecurrence
-            defaultValues={{ dueDate: initialDueDate }}
+            defaultValues={{ dueDate: initialDueDate, subjectId: initialSubjectId }}
           />
 
           {error ? (
