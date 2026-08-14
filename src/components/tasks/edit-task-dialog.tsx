@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { TaskFormFields } from "@/components/tasks/task-form-fields"
+import { TaskFormFields, type TaskSubjectOption } from "@/components/tasks/task-form-fields"
 
 type EditTaskDialogProps = {
   open: boolean
@@ -25,7 +25,10 @@ type EditTaskDialogProps = {
     due_date: string | null
     priority: string
     status: string
+    subject_id: string | null
+    series_id: string | null
   }
+  subjects: TaskSubjectOption[]
   onSave: (formData: FormData) => Promise<void>
 }
 
@@ -40,7 +43,7 @@ type EditTaskDialogProps = {
  * here, since only one task is being edited at a time and the trigger
  * (the card itself) lives outside this component's own markup.
  */
-export function EditTaskDialog({ open, onOpenChange, task, onSave }: EditTaskDialogProps) {
+export function EditTaskDialog({ open, onOpenChange, task, subjects, onSave }: EditTaskDialogProps) {
   const [error, setError] = React.useState<string | null>(null)
   const [isPending, startTransition] = React.useTransition()
 
@@ -74,7 +77,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onSave }: EditTaskDia
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-[min(42rem,calc(100vw-2rem))] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit task</DialogTitle>
           <DialogDescription>Update the details for this task.</DialogDescription>
@@ -83,8 +86,15 @@ export function EditTaskDialog({ open, onOpenChange, task, onSave }: EditTaskDia
         <form onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="task_id" value={task.id} />
 
+          {task.series_id ? (
+            <p className="rounded-xl border border-border bg-muted px-4 py-3 text-xs text-muted-foreground">
+              Part of a recurring series — changes here only affect this occurrence.
+            </p>
+          ) : null}
+
           <TaskFormFields
             disabled={isPending}
+            subjects={subjects}
             defaultValues={{
               title: task.title,
               description: task.description ?? "",
@@ -92,6 +102,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onSave }: EditTaskDia
               dueDate: task.due_date ?? "",
               priority: task.priority,
               status: task.status,
+              subjectId: task.subject_id ?? "",
             }}
           />
 

@@ -19,6 +19,14 @@ exception
 end
 $$;
 
+do $$
+begin
+  create type public.task_recurrence_type as enum ('daily', 'weekdays', 'weekly', 'monthly');
+exception
+  when duplicate_object then null;
+end
+$$;
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -106,6 +114,49 @@ create table if not exists public.tasks (
 alter table public.tasks
 add column if not exists tags text[] not null default '{}'::text[];
 
+-- Sprint 4: recurring task series. A series is the recurrence "template";
+-- individual dated tasks (occurrences) are ordinary rows in public.tasks
+-- linked back via series_id, so each occurrence keeps its own independent
+-- status/completion history.
+create table if not exists public.task_series (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  subject_id uuid references public.subjects (id) on delete set null,
+  title text not null,
+  description text,
+  tags text[] not null default '{}'::text[],
+  priority public.task_priority not null default 'medium',
+  recurrence_type public.task_recurrence_type not null,
+  start_date date not null,
+  -- Generation checkpoint: occurrences are only ever generated for dates
+  -- after this value, so deleting a materialized occurrence never causes it
+  -- to be silently regenerated on the next planner load.
+  last_generated_through date,
+  -- Sprint 4.1: lets the generator be told to stop producing new occurrences
+  -- for a series without deleting its history. No pause/resume UI ships this
+  -- sprint — this only makes the data model and generator ready for it.
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.tasks
+add column if not exists series_id uuid references public.task_series (id) on delete set null;
+
+-- Sprint 4.1: idempotent patch for task_series created before the "active"
+-- column existed. Backfills every pre-existing series to active = true (the
+-- same behavior they always had) rather than a destructive migration.
+alter table public.task_series
+add column if not exists active boolean not null default true;
+
+-- Plain (non-partial) unique index: ON CONFLICT target inference cannot use a
+-- partial index unless the INSERT's ON CONFLICT clause repeats the WHERE
+-- predicate, which supabase-js's upsert(..., { onConflict }) cannot express.
+-- Postgres already treats NULL <> NULL in unique indexes, so ordinary
+-- non-recurring tasks (series_id is null) sharing a due_date never collide.
+create unique index if not exists tasks_series_due_date_unique
+  on public.tasks (series_id, due_date);
+
 -- Sprint 3.2: a subject belongs to exactly one semester. Cascade-delete
 -- subjects when their semester is removed instead of orphaning them via
 -- "on delete set null" (existing rows with semester_id already null are
@@ -190,6 +241,8 @@ create index if not exists subjects_semester_id_idx on public.subjects (semester
 create index if not exists tasks_user_id_idx on public.tasks (user_id);
 create index if not exists tasks_subject_id_idx on public.tasks (subject_id);
 create index if not exists tasks_due_date_idx on public.tasks (due_date);
+create index if not exists tasks_series_id_idx on public.tasks (series_id);
+create index if not exists task_series_user_id_idx on public.task_series (user_id);
 create index if not exists pomodoro_sessions_user_id_idx on public.pomodoro_sessions (user_id);
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
@@ -212,6 +265,11 @@ create trigger set_tasks_updated_at
 before update on public.tasks
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_task_series_updated_at on public.task_series;
+create trigger set_task_series_updated_at
+before update on public.task_series
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_pomodoro_sessions_updated_at on public.pomodoro_sessions;
 create trigger set_pomodoro_sessions_updated_at
 before update on public.pomodoro_sessions
@@ -221,6 +279,7 @@ alter table public.profiles enable row level security;
 alter table public.semesters enable row level security;
 alter table public.subjects enable row level security;
 alter table public.tasks enable row level security;
+alter table public.task_series enable row level security;
 alter table public.pomodoro_sessions enable row level security;
 
 drop policy if exists "Profiles are readable by owner" on public.profiles;
@@ -259,6 +318,13 @@ with check (user_id = auth.uid());
 drop policy if exists "Users can manage their tasks" on public.tasks;
 create policy "Users can manage their tasks"
 on public.tasks
+for all
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+drop policy if exists "Users can manage their task series" on public.task_series;
+create policy "Users can manage their task series"
+on public.task_series
 for all
 using (user_id = auth.uid())
 with check (user_id = auth.uid());

@@ -19,13 +19,13 @@ export function PageHeader({ title, description, action, className }: PageHeader
   return (
     <header
       className={cn(
-        "flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6",
+        "flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4",
         className,
       )}
     >
-      <div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        {description ? <p className="mt-1 text-muted-foreground">{description}</p> : null}
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold sm:text-2xl">{title}</h1>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>

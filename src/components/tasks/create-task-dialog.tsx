@@ -13,11 +13,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { TaskFormFields } from "@/components/tasks/task-form-fields"
+import { TaskFormFields, type TaskSubjectOption } from "@/components/tasks/task-form-fields"
 
 type CreateTaskDialogProps = {
   onCreate: (formData: FormData) => Promise<void>
+  subjects?: TaskSubjectOption[]
   trigger?: React.ReactNode
+  /**
+   * Pre-fills the due date field — used by planner-column quick-add so
+   * clicking "+ Add task" under a specific date opens this same dialog with
+   * that date already selected, instead of a second creation path.
+   */
+  initialDueDate?: string
 }
 
 /**
@@ -26,7 +33,7 @@ type CreateTaskDialogProps = {
  * their names, and createTask itself are unchanged — this only owns the
  * open/pending/error UI state around the same submission.
  */
-export function CreateTaskDialog({ onCreate, trigger }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ onCreate, subjects = [], trigger, initialDueDate }: CreateTaskDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [isPending, startTransition] = React.useTransition()
@@ -71,14 +78,19 @@ export function CreateTaskDialog({ onCreate, trigger }: CreateTaskDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-[min(42rem,calc(100vw-2rem))] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New task</DialogTitle>
           <DialogDescription>Add one academic task at a time and keep it focused.</DialogDescription>
         </DialogHeader>
 
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-          <TaskFormFields disabled={isPending} />
+          <TaskFormFields
+            disabled={isPending}
+            subjects={subjects}
+            showRecurrence
+            defaultValues={{ dueDate: initialDueDate }}
+          />
 
           {error ? (
             <p
