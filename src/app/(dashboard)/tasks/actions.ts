@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, parseTaskTags } from "@/lib/tasks"
+import { RECURRENCE_OPTIONS, synchronizeRecurringTaskOccurrences, type RecurrenceOption } from "@/lib/recurrence"
 
 async function getAuthedSupabase() {
   const cookieStore = await cookies()
@@ -44,6 +45,44 @@ async function ensureTaskOwnership(
   }
 }
 
+/**
+ * Never trusts a client-supplied subject id: confirms it exists and belongs
+ * to the authenticated user before it's allowed to be stored on a task or
+ * series. Empty input means "No Subject" and is left unvalidated (null).
+ */
+async function resolveSubjectId(
+  supabase: Awaited<ReturnType<typeof getAuthedSupabase>>,
+  userId: string,
+  rawSubjectId: string,
+) {
+  const subjectId = rawSubjectId.trim()
+
+  if (!subjectId) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from("subjects")
+    .select("id")
+    .eq("id", subjectId)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (error || !data) {
+    throw new Error("Selected subject was not found.")
+  }
+
+  return subjectId
+}
+
+function parseRecurrenceOption(value: string): RecurrenceOption {
+  if (!RECURRENCE_OPTIONS.includes(value as RecurrenceOption)) {
+    throw new Error("Invalid repeat option.")
+  }
+
+  return value as RecurrenceOption
+}
+
 function parsePriority(value: string) {
   if (!TASK_PRIORITY_OPTIONS.includes(value as (typeof TASK_PRIORITY_OPTIONS)[number])) {
     throw new Error("Invalid task priority.")
@@ -70,13 +109,47 @@ export async function createTask(formData: FormData) {
   const dueDateValue = String(formData.get("due_date") ?? "").trim()
   const priority = parsePriority(String(formData.get("priority") ?? "medium"))
   const status = parseStatus(String(formData.get("status") ?? "todo"))
+  const repeat = parseRecurrenceOption(String(formData.get("repeat") ?? "none"))
+  const subjectId = await resolveSubjectId(supabase, userId, String(formData.get("subject_id") ?? ""))
 
   if (!title) {
     throw new Error("Task title is required.")
   }
 
+  if (repeat !== "none") {
+    // Recurrence needs an anchor date to step forward from — never guess
+    // one, and never fall back to silently creating a non-recurring task.
+    if (!dueDateValue) {
+      throw new Error("Recurring tasks need a due date to use as their start date.")
+    }
+
+    const { error: seriesError } = await supabase.from("task_series").insert({
+      user_id: userId,
+      subject_id: subjectId,
+      title,
+      description: description || null,
+      tags: parseTaskTags(tagsValue),
+      priority,
+      recurrence_type: repeat,
+      start_date: dueDateValue,
+    })
+
+    if (seriesError) {
+      throw new Error(seriesError.message)
+    }
+
+    // Materialize occurrences immediately so the new series shows up on the
+    // planner without waiting for the next page load.
+    await synchronizeRecurringTaskOccurrences(supabase, userId)
+
+    revalidatePath("/tasks")
+    revalidatePath("/dashboard")
+    return
+  }
+
   const { error } = await supabase.from("tasks").insert({
     user_id: userId,
+    subject_id: subjectId,
     title,
     description: description || null,
     tags: parseTaskTags(tagsValue),
@@ -110,7 +183,11 @@ export async function updateTask(formData: FormData) {
   }
 
   await ensureTaskOwnership(supabase, taskId, userId)
+  const subjectId = await resolveSubjectId(supabase, userId, String(formData.get("subject_id") ?? ""))
 
+  // Editing an occurrence only ever touches this one `tasks` row — it never
+  // writes back to task_series, so historical/other occurrences in the same
+  // series are untouched by design (no "edit the whole series" path exists).
   const { error } = await supabase
     .from("tasks")
     .update({
@@ -120,6 +197,7 @@ export async function updateTask(formData: FormData) {
       due_date: dueDateValue || null,
       priority,
       status,
+      subject_id: subjectId,
     })
     .eq("id", taskId)
     .eq("user_id", userId)

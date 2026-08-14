@@ -5,6 +5,8 @@ import { Check, Trash2 } from "lucide-react"
 
 import { EditTaskDialog } from "@/components/tasks/edit-task-dialog"
 import { DeleteConfirmDialog } from "@/components/academic/delete-confirm-dialog"
+import { type TaskSubjectOption } from "@/components/tasks/task-form-fields"
+import { getTaskPriorityStyles } from "@/lib/tasks"
 import { cn } from "@/lib/utils"
 
 export type TaskRecord = {
@@ -15,42 +17,35 @@ export type TaskRecord = {
   due_date: string | null
   priority: string
   status: string
+  subject_id: string | null
+  series_id: string | null
+  subject: { subject_code: string; subject_name: string } | null
 }
 
 type TaskCardProps = {
   task: TaskRecord
+  subjects: TaskSubjectOption[]
   onUpdateTask: (formData: FormData) => Promise<void>
   onDeleteTask: (formData: FormData) => Promise<void>
   onSetTaskCompletion: (formData: FormData) => Promise<void>
 }
 
-// Full-border priority tint (not a left accent bar, not a filled card) +
-// solid badge/foreground pair for the text label — solid badge + dedicated
-// -foreground token stays above 6:1 contrast in both themes, whereas a
-// translucent tint with color-matched text (tried earlier) fell as low as
-// ~1.9:1 for gold/terracotta in light mode.
-const PRIORITY_STYLES: Record<string, { border: string; label: string }> = {
-  urgent: { border: "border-terracotta/50 hover:border-terracotta", label: "text-terracotta" },
-  high: { border: "border-terracotta/50 hover:border-terracotta", label: "text-terracotta" },
-  medium: { border: "border-highlight/50 hover:border-highlight", label: "text-highlight" },
-  low: { border: "border-primary/40 hover:border-primary/70", label: "text-primary" },
-}
-
 export function TaskCard({
   task,
+  subjects,
   onUpdateTask,
   onDeleteTask,
   onSetTaskCompletion,
 }: TaskCardProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const isDone = task.status === "done"
-  const priorityStyle = PRIORITY_STYLES[task.priority] ?? PRIORITY_STYLES.medium
+  const priorityStyle = getTaskPriorityStyles(task.priority)
 
   return (
     <>
       <article
         className={cn(
-          "group relative rounded-lg border bg-card p-2.5 pr-8 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+          "group relative rounded-lg border bg-card p-2.5 pr-8 shadow-sm transition-colors duration-200 hover:bg-accent/40 hover:shadow-md",
           isDone ? "opacity-60 border-border" : priorityStyle.border,
         )}
       >
@@ -110,6 +105,12 @@ export function TaskCard({
             {task.description ? (
               <p className="mt-0.5 line-clamp-2 break-words text-xs leading-5 text-muted-foreground">{task.description}</p>
             ) : null}
+
+            {task.subject ? (
+              <p className="mt-0.5 truncate text-[0.68rem] font-medium text-muted-foreground">
+                {task.subject.subject_code} · {task.subject.subject_name}
+              </p>
+            ) : null}
           </button>
 
           <div className="absolute right-1.5 top-1.5 flex shrink-0 items-center rounded-md bg-card/90 opacity-100 backdrop-blur-sm transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
@@ -138,7 +139,13 @@ export function TaskCard({
         </div>
       </article>
 
-      <EditTaskDialog open={editOpen} onOpenChange={setEditOpen} task={task} onSave={onUpdateTask} />
+      <EditTaskDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        task={task}
+        subjects={subjects}
+        onSave={onUpdateTask}
+      />
     </>
   )
 }

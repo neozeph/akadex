@@ -26,3 +26,21 @@ export function formatTaskStatus(status: TaskStatus) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ")
 }
+
+export type TaskPriorityStyle = { border: string; label: string }
+
+// Full-border priority tint (not a left accent bar, not a filled card) +
+// solid label color — terracotta for high/urgent, gold for medium, sage/
+// forest green for low, matching the Akadex brand palette. Shared by
+// TaskCard and the Dashboard's Recent Tasks so priority reads identically
+// everywhere it appears, instead of each surface inventing its own colors.
+const TASK_PRIORITY_STYLES: Record<TaskPriority, TaskPriorityStyle> = {
+  urgent: { border: "border-terracotta/50 hover:border-terracotta", label: "text-terracotta" },
+  high: { border: "border-terracotta/50 hover:border-terracotta", label: "text-terracotta" },
+  medium: { border: "border-highlight/50 hover:border-highlight", label: "text-highlight" },
+  low: { border: "border-primary/40 hover:border-primary/70", label: "text-primary" },
+}
+
+export function getTaskPriorityStyles(priority: string): TaskPriorityStyle {
+  return TASK_PRIORITY_STYLES[priority as TaskPriority] ?? TASK_PRIORITY_STYLES.medium
+}

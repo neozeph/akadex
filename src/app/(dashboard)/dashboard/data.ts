@@ -17,6 +17,7 @@ export type DashboardData = {
     due_date: string | null
     priority: string
     tags: string[]
+    subject: { subject_code: string; subject_name: string } | null
   }>
 }
 
@@ -49,7 +50,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       .eq("user_id", userId),
     supabase
       .from("tasks")
-      .select("id, title, due_date, priority, status, tags")
+      .select("id, title, due_date, priority, status, tags, subject:subjects(subject_code, subject_name)")
       .eq("user_id", userId)
       .order("due_date", { ascending: true, nullsFirst: false })
       .limit(5),
@@ -71,6 +72,12 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     .reduce((sum, subject) => sum + Number(subject.units), 0)
   const overallGpa = calculateGwa(subjects)
 
+  // Without generated Supabase types, an embedded relationship is typed as
+  // an array regardless of FK cardinality — normalize the actual
+  // many-to-one row PostgREST returns at runtime into a single object.
+  const firstOrNull = <T,>(value: T | T[] | null | undefined): T | null =>
+    Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
+
   return {
     overallGpa,
     totalUnitsCompleted,
@@ -91,6 +98,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         due_date: task.due_date,
         priority: task.priority,
         tags: task.tags ?? [],
+        subject: firstOrNull(task.subject),
       })),
   }
 }

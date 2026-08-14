@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/ui/page-header"
 import { DashboardActions } from "@/components/dashboard/dashboard-actions"
 import { getAuthenticatedUser, getSupabaseClaims } from "@/lib/supabase/session"
+import { getTaskPriorityStyles } from "@/lib/tasks"
+import { cn } from "@/lib/utils"
 import { getDashboardData } from "./data"
 import { createTask } from "../tasks/actions"
 import { createSemester } from "../semesters/actions"
@@ -93,43 +95,52 @@ export default async function DashboardPage() {
               <Link href="/tasks">Open tasks</Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3 px-6 pb-6">
+          <CardContent className="space-y-2 px-6 pb-6">
             {dashboard.upcomingTasks.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border/60 bg-background/60 p-6 text-sm text-muted-foreground">
                 No active tasks yet. Add one when you are ready and it will show up here.
               </div>
             ) : (
-              dashboard.upcomingTasks.map((task) => (
-                <article key={task.id} className="rounded-2xl border border-border/60 bg-background/50 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">{task.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {task.due_date ? `Due ${task.due_date}` : "No due date"}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {task.tags.length > 0 ? (
-                          task.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
-                            >
-                              #{tag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-                            No tags
+              dashboard.upcomingTasks.map((task) => {
+                const priorityStyle = getTaskPriorityStyles(task.priority)
+
+                return (
+                  <article
+                    key={task.id}
+                    className={cn(
+                      "rounded-lg border bg-card p-2.5 shadow-sm transition-colors duration-200 hover:bg-accent/40",
+                      priorityStyle.border,
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="mt-1 flex size-3.5 shrink-0 items-center justify-center rounded-full border border-border"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                          <span
+                            className={cn(
+                              "shrink-0 text-[0.68rem] font-semibold uppercase tracking-wide",
+                              priorityStyle.label,
+                            )}
+                          >
+                            {task.priority}
                           </span>
-                        )}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {task.subject
+                            ? `${task.subject.subject_code} · ${task.subject.subject_name}`
+                            : task.due_date
+                              ? `Due ${task.due_date}`
+                              : "No due date"}
+                        </p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-border px-3 py-1 text-xs font-medium uppercase text-muted-foreground">
-                      {task.priority}
-                    </span>
-                  </div>
-                </article>
-              ))
+                  </article>
+                )
+              })
             )}
           </CardContent>
         </Card>
