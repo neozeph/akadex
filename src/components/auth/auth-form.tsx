@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +21,10 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [fullName, setFullName] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  // Set only when signUp() succeeds without an immediate session (email
+  // confirmation required) — a distinct state from `message` so it can get
+  // its own "check your email" panel below instead of an inline paragraph.
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -44,9 +49,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         router.push("/dashboard")
         router.refresh()
       } else {
-        setMessage(
-          `Your account was created. Check ${email} for a confirmation email and click the link inside it to activate your account before signing in.`,
-        )
+        setConfirmationEmail(email)
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
@@ -63,6 +66,36 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
 
     setLoading(false)
+  }
+
+  if (confirmationEmail) {
+    return (
+      <div className="space-y-4 text-center">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Mail className="size-6" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Check your email.</h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            We sent a confirmation link to:
+            <br />
+            <span className="font-medium text-foreground">{confirmationEmail}</span>
+          </p>
+        </div>
+        <Button asChild className="w-full" size="lg">
+          <a href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noreferrer">
+            Open Gmail
+          </a>
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Click the link in that email to activate your account, then{" "}
+          <Link className="font-medium text-foreground underline underline-offset-2" href="/login">
+            sign in
+          </Link>
+          .
+        </p>
+      </div>
+    )
   }
 
   return (

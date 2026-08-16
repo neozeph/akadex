@@ -1,70 +1,113 @@
-import { BookOpen, Flag, GraduationCap, Sparkles, Target, Trophy } from "lucide-react"
+"use client"
 
-const milestones = [
-  {
-    title: "Start College",
-    description: "Take the first step with a workspace that feels welcoming and organized from day one.",
-    icon: Sparkles,
-  },
-  {
-    title: "Create Your First Semester",
-    description: "Lay out your subjects, deadlines, and goals in a calm, flexible structure.",
-    icon: BookOpen,
-  },
-  {
-    title: "Track Your Grades",
-    description: "Watch your effort turn into progress with a clear picture of performance.",
-    icon: Target,
-  },
-  {
-    title: "Complete Your Tasks",
-    description: "Keep assignments, priorities, and focus sessions moving forward without friction.",
-    icon: Flag,
-  },
-  {
-    title: "Stay Focused",
-    description: "Use built-in tools to protect your concentration and build strong study habits.",
-    icon: Trophy,
-  },
-  {
-    title: "Graduate with Confidence",
-    description: "Finish the journey knowing your plans, records, and progress were always within reach.",
-    icon: GraduationCap,
-  },
-]
+import { useEffect, useRef, useState } from "react"
 
+import { cn } from "@/lib/utils"
+
+const STEPS = [
+  { number: "01", title: "Plan", description: "Create your semester and organize your subjects." },
+  { number: "02", title: "Organize", description: "Plan tasks across actual dates, including recurring ones." },
+  { number: "03", title: "Focus", description: "Use Pomodoro when it's time to sit down and work." },
+  { number: "04", title: "Track", description: "Record final grades and watch your GWA update automatically." },
+  { number: "05", title: "Understand", description: "Use Analytics to see how your academic habits develop." },
+] as const
+
+/**
+ * Progressive enhancement, not scroll-jacking: normal browser scroll is
+ * untouched throughout. IntersectionObserver only decides which step gets
+ * the "active" highlight as it crosses the middle of the viewport — with
+ * JS disabled (or before hydration) every step is still fully readable, in
+ * order, with no animation dependency.
+ */
 export function Journey() {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const stepRefs = useRef<Array<HTMLDivElement | null>>([])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) {
+            continue
+          }
+          const index = stepRefs.current.findIndex((el) => el === entry.target)
+          if (index !== -1) {
+            setActiveIndex(index)
+          }
+        }
+      },
+      { rootMargin: "-42% 0px -42% 0px", threshold: 0 },
+    )
+
+    const elements = stepRefs.current.filter((el): el is HTMLDivElement => el !== null)
+    elements.forEach((el) => observer.observe(el))
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section id="journey" className="scroll-mt-24 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+    <section id="journey" className="scroll-mt-24 px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
       <div className="mx-auto max-w-7xl">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-emerald-600 dark:text-emerald-300">
-            Your academic journey
+        <div className="max-w-2xl">
+          <p className="font-accent text-xs font-semibold tracking-[0.32em] text-primary uppercase">
+            Your academic journey with Akadex
           </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            From your first semester to your final milestone.
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            From building your semester to understanding your progress.
           </h2>
-          <p className="mt-4 text-lg leading-8 text-muted-foreground">
-            Akadex supports every chapter of your academic path with a journey that feels grounded, motivating, and easy to follow.
-          </p>
         </div>
 
-        <div className="mt-12 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-4">
-          {milestones.map((milestone, index) => {
-            const Icon = milestone.icon
-            return (
-              <div key={milestone.title} className="relative rounded-[1.5rem] border border-emerald-200/70 bg-card/85 p-6 shadow-sm dark:border-emerald-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="rounded-full bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-300">
-                    <Icon className="size-5" />
-                  </div>
-                  <span className="text-sm font-semibold text-muted-foreground">0{index + 1}</span>
+        <div className="mt-12 grid gap-6 lg:grid-cols-[3.5rem_1fr] lg:gap-10">
+          {/* Sticky numbered rail — desktop only. Mobile shows each step's
+              number inline with its own card instead (below). */}
+          <div className="hidden lg:block">
+            <div className="sticky top-28 flex flex-col items-center gap-2">
+              {STEPS.map((step, index) => (
+                <div
+                  key={step.number}
+                  aria-hidden="true"
+                  className={cn(
+                    "flex size-11 shrink-0 items-center justify-center rounded-full border font-accent text-xs font-semibold transition-colors duration-300",
+                    index === activeIndex
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground",
+                  )}
+                >
+                  {step.number}
                 </div>
-                <h3 className="mt-5 text-xl font-semibold text-foreground">{milestone.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">{milestone.description}</p>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            {STEPS.map((step, index) => (
+              <div
+                key={step.number}
+                ref={(el) => {
+                  stepRefs.current[index] = el
+                }}
+                className={cn(
+                  "flex gap-4 rounded-[1.4rem] border p-6 transition-colors duration-300",
+                  index === activeIndex ? "border-primary/60 bg-accent/30" : "border-border bg-card",
+                )}
+              >
+                <div className="flex flex-col items-center lg:hidden">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border font-accent text-[0.65rem] font-semibold text-muted-foreground"
+                  >
+                    {step.number}
+                  </span>
+                  {index < STEPS.length - 1 ? <span aria-hidden="true" className="mt-1 w-px flex-1 bg-border" /> : null}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{step.description}</p>
+                </div>
               </div>
-            )
-          })}
+            ))}
+          </div>
         </div>
       </div>
     </section>
