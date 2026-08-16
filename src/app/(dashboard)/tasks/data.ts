@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { formatSubjectOptionLabel } from "@/lib/subjects"
 import { synchronizeRecurringTaskOccurrences } from "@/lib/recurrence"
+import { throwPublicError } from "@/lib/server-errors"
 
 export type TasksSearchParams = {
   q?: string
@@ -55,11 +56,11 @@ export async function getTaskPlannerData(searchParams: TasksSearchParams) {
   ])
 
   if (tasksResult.error) {
-    throw new Error(tasksResult.error.message)
+    throwPublicError("tasks.loadPlannerTasks", tasksResult.error, "Unable to load your tasks right now.")
   }
 
   if (subjectsResult.error) {
-    throw new Error(subjectsResult.error.message)
+    throwPublicError("tasks.loadPlannerSubjects", subjectsResult.error, "Unable to load your tasks right now.")
   }
 
   // Without generated Supabase types, an embedded relationship is typed as

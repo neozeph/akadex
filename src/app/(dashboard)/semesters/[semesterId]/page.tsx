@@ -10,6 +10,7 @@ import { formatSemesterLabel, formatSemesterSchoolYear } from "@/lib/semesters"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { throwPublicError } from "@/lib/server-errors"
 
 import { createSubject, deleteSubject, updateSubject } from "./actions"
 
@@ -48,7 +49,7 @@ async function getSemesterDetail(semesterId: string) {
     .order("created_at", { ascending: false })
 
   if (subjectsError) {
-    throw new Error(subjectsError.message)
+    throwPublicError("semesters.loadSubjects", subjectsError, "Unable to load this semester right now.")
   }
 
   const subjectRows = subjects ?? []
@@ -67,7 +68,7 @@ async function getSemesterDetail(semesterId: string) {
       .neq("status", "done")
 
     if (activeTasksError) {
-      throw new Error(activeTasksError.message)
+      throwPublicError("semesters.loadActiveTasks", activeTasksError, "Unable to load this semester right now.")
     }
 
     for (const task of activeTasks ?? []) {

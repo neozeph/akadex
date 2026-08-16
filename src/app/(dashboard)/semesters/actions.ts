@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { throwPublicError } from "@/lib/server-errors"
 import { SCHOOL_YEAR_START_MAX, SCHOOL_YEAR_START_MIN, TERM_OPTIONS } from "@/lib/semesters"
 
 async function getAuthedSupabase() {
@@ -72,7 +73,7 @@ export async function createSemester(formData: FormData) {
   })
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("semesters.create", error, "Unable to create the semester. Please try again.")
   }
 
   revalidatePath("/semesters")
@@ -115,7 +116,7 @@ export async function updateSemester(formData: FormData) {
     .eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("semesters.update", error, "Unable to update the semester. Please try again.")
   }
 
   revalidatePath("/semesters")
@@ -146,7 +147,7 @@ export async function deleteSemester(formData: FormData) {
     .eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("semesters.delete", error, "Unable to delete the semester. Please try again.")
   }
 
   revalidatePath("/semesters")

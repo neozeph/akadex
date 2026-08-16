@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { throwPublicError } from "@/lib/server-errors"
 import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, parseTaskTags } from "@/lib/tasks"
 import { RECURRENCE_OPTIONS, synchronizeRecurringTaskOccurrences, type RecurrenceOption } from "@/lib/recurrence"
 
@@ -160,7 +161,7 @@ export async function createTask(formData: FormData) {
     })
 
     if (seriesError) {
-      throw new Error(seriesError.message)
+      throwPublicError("tasks.createSeries", seriesError, "Unable to create the recurring task. Please try again.")
     }
 
     // Materialize occurrences immediately so the new series shows up on the
@@ -191,7 +192,7 @@ export async function createTask(formData: FormData) {
   })
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("tasks.create", error, "Unable to create the task. Please try again.")
   }
 
   revalidatePath("/tasks")
@@ -249,7 +250,7 @@ export async function updateTask(formData: FormData) {
     .eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("tasks.update", error, "Unable to update the task. Please try again.")
   }
 
   revalidatePath("/tasks")
@@ -273,7 +274,7 @@ export async function deleteTask(formData: FormData) {
   const { error } = await supabase.from("tasks").delete().eq("id", taskId).eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("tasks.delete", error, "Unable to delete the task. Please try again.")
   }
 
   revalidatePath("/tasks")
@@ -309,7 +310,7 @@ export async function setTaskCompletion(formData: FormData) {
     .eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("tasks.setCompletion", error, "Unable to update the task status. Please try again.")
   }
 
   revalidatePath("/tasks")

@@ -56,3 +56,47 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  open-promotion-pr:
+    name: Open promotion PR
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && needs.quality.result == 'success'
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    concurrency:
+      group: promote-dev-to-main
+      cancel-in-progress: false
+
+    steps:
+      - name: Check for existing promotion PR
+        id: existing-pr
+        run: |
+          pr_number="$(gh pr list \
+            --base main \
+            --head dev \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$pr_number" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "Promotion PR already exists: #$pr_number"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No open promotion PR found."
+          fi
+
+      - name: Create promotion PR
+        if: steps.existing-pr.outputs.exists == 'false'
+        run: |
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "Promote dev to main" \
+            --body "Automated promotion PR. The CI quality checks on dev passed successfully for this push."

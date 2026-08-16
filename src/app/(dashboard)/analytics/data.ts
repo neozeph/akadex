@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { calculateGwa, getSubjectStatus, GRADE_OPTIONS } from "@/lib/grades"
 import { compareSemestersChronologically, formatSemesterLabel, formatSemesterShortLabel } from "@/lib/semesters"
+import { throwPublicError } from "@/lib/server-errors"
 
 export type GwaBySemesterPoint = {
   semesterId: string
@@ -41,11 +42,11 @@ export async function getAnalyticsData(userId: string) {
   ])
 
   if (semestersResult.error) {
-    throw new Error(semestersResult.error.message)
+    throwPublicError("analytics.loadSemesters", semestersResult.error, "Unable to load your analytics right now.")
   }
 
   if (subjectsResult.error) {
-    throw new Error(subjectsResult.error.message)
+    throwPublicError("analytics.loadSubjects", subjectsResult.error, "Unable to load your analytics right now.")
   }
 
   const semesters = semestersResult.data ?? []

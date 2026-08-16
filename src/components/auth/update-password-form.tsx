@@ -4,10 +4,13 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/auth/password-input"
+import {
+  getPasswordLengthMessage,
+  validatePasswordConfirmation,
+  validatePasswordLength,
+} from "@/lib/password-policy"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
-
-const MIN_PASSWORD_LENGTH = 6
 
 export function UpdatePasswordForm() {
   const router = useRouter()
@@ -22,12 +25,12 @@ export function UpdatePasswordForm() {
     event.preventDefault()
     setErrorMessage(null)
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setErrorMessage(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
+    if (!validatePasswordLength(password)) {
+      setErrorMessage(getPasswordLengthMessage())
       return
     }
 
-    if (password !== confirmPassword) {
+    if (!validatePasswordConfirmation(password, confirmPassword)) {
       setErrorMessage("Passwords do not match.")
       return
     }
@@ -76,13 +79,13 @@ export function UpdatePasswordForm() {
         <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="password">
           New password
         </label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
           autoComplete="new-password"
+          minLength={8}
           required
         />
       </div>
@@ -91,13 +94,13 @@ export function UpdatePasswordForm() {
         <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="confirm-password">
           Confirm new password
         </label>
-        <Input
+        <PasswordInput
           id="confirm-password"
-          type="password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
           placeholder="••••••••"
           autoComplete="new-password"
+          minLength={8}
           required
         />
       </div>

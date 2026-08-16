@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { throwPublicError } from "@/lib/server-errors"
 
 async function getAuthedSupabase() {
   const cookieStore = await cookies()
@@ -44,7 +45,7 @@ export async function updateDisplayName(formData: FormData) {
     )
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("settings.updateDisplayName", error, "Unable to update your profile. Please try again.")
   }
 
   revalidatePath("/settings")
