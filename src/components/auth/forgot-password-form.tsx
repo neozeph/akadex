@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { getAuthCallbackUrl } from "@/lib/auth-redirect"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 export function ForgotPasswordForm() {
@@ -17,7 +18,7 @@ export function ForgotPasswordForm() {
     setLoading(true)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: getAuthCallbackUrl(window.location.origin),
     })
 
     setStatus(error ? "error" : "sent")

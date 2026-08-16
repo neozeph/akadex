@@ -7,6 +7,7 @@ import { Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { getAuthCallbackUrl } from "@/lib/auth-redirect"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type AuthFormProps = {
@@ -70,7 +71,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           data: {
             full_name: fullName,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: getAuthCallbackUrl(window.location.origin),
         },
       })
 
