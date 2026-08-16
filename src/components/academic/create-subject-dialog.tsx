@@ -85,7 +85,7 @@ export function CreateSubjectDialog({ semesterId, onCreate }: CreateSubjectDialo
               id="subject_code"
               name="subject_code"
               placeholder="CS101"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm font-mono uppercase outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm font-mono uppercase outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             />
@@ -99,7 +99,7 @@ export function CreateSubjectDialog({ semesterId, onCreate }: CreateSubjectDialo
               id="subject_name"
               name="subject_name"
               placeholder="Introduction to Programming"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             />
@@ -118,7 +118,7 @@ export function CreateSubjectDialog({ semesterId, onCreate }: CreateSubjectDialo
                 min="0.5"
                 max="10"
                 placeholder="3"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                 disabled={isPending}
                 required
               />
@@ -132,7 +132,7 @@ export function CreateSubjectDialog({ semesterId, onCreate }: CreateSubjectDialo
                 id="grade"
                 name="grade"
                 defaultValue=""
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                 disabled={isPending}
               >
                 <option value="">No grade yet</option>

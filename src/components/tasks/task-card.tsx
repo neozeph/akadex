@@ -61,7 +61,7 @@ export function TaskCard({
           <form action={onSetTaskCompletion}>
             <input type="hidden" name="task_id" value={task.id} />
             <input type="hidden" name="completed" value={String(!isDone)} />
-            <label className="mt-0.5 flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-primary">
+            <label className="relative mt-0.5 flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition before:absolute before:-inset-2.5 before:content-[''] hover:bg-accent hover:text-primary">
               <input
                 type="checkbox"
                 defaultChecked={isDone}
@@ -138,7 +138,7 @@ export function TaskCard({
                 <button
                   type="button"
                   aria-label={`Delete ${task.title}`}
-                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="relative flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors before:absolute before:-inset-2 before:content-[''] hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Trash2 className="size-3.5" />
                 </button>

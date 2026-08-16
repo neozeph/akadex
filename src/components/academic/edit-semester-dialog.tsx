@@ -101,7 +101,7 @@ export function EditSemesterDialog({
               id="edit-semester-year-level"
               value={yearLevel}
               onChange={(event) => setYearLevel(Number(event.target.value))}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             >
@@ -121,7 +121,7 @@ export function EditSemesterDialog({
               id="edit-semester-term"
               value={term}
               onChange={(event) => setTerm(event.target.value)}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             >
@@ -142,7 +142,7 @@ export function EditSemesterDialog({
                 id="edit-semester-school-year-start"
                 value={schoolYearStart}
                 onChange={(event) => setSchoolYearStart(Number(event.target.value))}
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                 disabled={isPending}
                 required
               >

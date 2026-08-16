@@ -49,7 +49,11 @@ export function UpdatePasswordForm() {
   if (success) {
     return (
       <div className="space-y-4">
-        <p className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground"
+        >
           Your password has been updated.
         </p>
         <Button
@@ -99,7 +103,7 @@ export function UpdatePasswordForm() {
       </div>
 
       {errorMessage ? (
-        <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <p role="alert" className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {errorMessage}
         </p>
       ) : null}

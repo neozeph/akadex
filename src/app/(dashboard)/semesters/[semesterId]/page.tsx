@@ -119,7 +119,7 @@ export default async function SemesterDetailPage({
         : `${gradedCount} of ${subjectCount} subject${subjectCount === 1 ? "" : "s"} graded`
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title={semesterLabel}
         description={semesterSchoolYear}
@@ -186,6 +186,6 @@ export default async function SemesterDetailPage({
           </div>
         )}
       </section>
-    </main>
+    </div>
   )
 }

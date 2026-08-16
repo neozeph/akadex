@@ -13,6 +13,37 @@ type AuthFormProps = {
   mode: "login" | "register"
 }
 
+/**
+ * Supabase Auth SDK error messages are already safe, user-appropriate
+ * strings (no leaked internals), but they're inconsistent with the rest of
+ * the app's generic-error convention and occasionally more technical than
+ * necessary. This maps the common cases to Akadex's own copy while
+ * preserving the distinctions that actually help a user (wrong credentials
+ * vs. unconfirmed email vs. rate limiting), falling back to a safe generic
+ * message for anything unmapped.
+ */
+function getAuthErrorMessage(error: { message: string; status?: number }): string {
+  const raw = error.message.toLowerCase()
+
+  if (raw.includes("invalid login credentials")) {
+    return "That email or password isn't right. Double-check and try again."
+  }
+  if (raw.includes("email not confirmed")) {
+    return "Please confirm your email before signing in — check your inbox for the confirmation link."
+  }
+  if (raw.includes("already registered")) {
+    return "An account with that email already exists. Try signing in instead."
+  }
+  if (raw.includes("password should be at least") || raw.includes("password is too short")) {
+    return "Your password is too short. Use at least 6 characters."
+  }
+  if (raw.includes("rate limit") || error.status === 429) {
+    return "Too many attempts. Please wait a moment and try again."
+  }
+
+  return "Something went wrong. Please try again."
+}
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -44,7 +75,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       })
 
       if (error) {
-        setMessage(error.message)
+        setMessage(getAuthErrorMessage(error))
       } else if (signUpData.session) {
         router.push("/dashboard")
         router.refresh()
@@ -58,7 +89,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       })
 
       if (error) {
-        setMessage(error.message)
+        setMessage(getAuthErrorMessage(error))
       } else {
         router.push("/dashboard")
         router.refresh()
@@ -70,7 +101,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   if (confirmationEmail) {
     return (
-      <div className="space-y-4 text-center">
+      <div className="space-y-4 text-center" role="status" aria-live="polite">
         <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Mail className="size-6" />
         </div>
@@ -151,7 +182,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       {message ? (
-        <p className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+        <p role="alert" className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
           {message}
         </p>
       ) : null}

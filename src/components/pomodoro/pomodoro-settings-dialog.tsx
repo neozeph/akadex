@@ -101,7 +101,7 @@ export function PomodoroSettingsDialog({ focusMinutes, breakMinutes, onSave }: P
                   step={1}
                   value={focusValue}
                   onChange={(event) => setFocusValue(Number(event.target.value))}
-                  className="h-11 w-full rounded-xl border border-border bg-background px-4 pr-12 text-sm outline-none transition focus:border-foreground"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-4 pr-12 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                   disabled={isPending}
                   required
                 />
@@ -126,7 +126,7 @@ export function PomodoroSettingsDialog({ focusMinutes, breakMinutes, onSave }: P
                   step={1}
                   value={breakValue}
                   onChange={(event) => setBreakValue(Number(event.target.value))}
-                  className="h-11 w-full rounded-xl border border-border bg-background px-4 pr-12 text-sm outline-none transition focus:border-foreground"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-4 pr-12 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                   disabled={isPending}
                   required
                 />

@@ -65,7 +65,7 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title={`Welcome back, ${displayName}`}
         description="Here’s your academic and productivity overview."
@@ -168,6 +168,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </section>
-    </main>
+    </div>
   )
 }

@@ -138,7 +138,7 @@ export function TaskFormFields({
             name="title"
             defaultValue={defaultValues.title}
             placeholder="Finish thesis chapter 1"
-            className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-primary"
+            className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/20"
             disabled={disabled}
             required
           />
@@ -154,7 +154,7 @@ export function TaskFormFields({
             rows={5}
             defaultValue={defaultValues.description}
             placeholder="Add notes or checklist items"
-            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
+            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/20"
             disabled={disabled}
           />
         </div>
@@ -168,7 +168,7 @@ export function TaskFormFields({
             name="tags"
             defaultValue={defaultValues.tags}
             placeholder="thesis, sql, capstone"
-            className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-primary"
+            className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/20"
             disabled={disabled}
           />
         </div>

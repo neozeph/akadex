@@ -1,4 +1,4 @@
-# AKADEKS Sprint Plan
+# AKADEX Sprint Plan
 
 ## Sprint Methodology
 

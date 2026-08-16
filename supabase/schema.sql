@@ -1,4 +1,4 @@
--- AKADEKS core schema for Supabase Postgres
+-- AKADEX core schema for Supabase Postgres
 -- Paste this into the Supabase SQL editor and run it once.
 
 create extension if not exists "pgcrypto";
@@ -309,6 +309,16 @@ create index if not exists tasks_due_date_idx on public.tasks (due_date);
 create index if not exists tasks_series_id_idx on public.tasks (series_id);
 create index if not exists task_series_user_id_idx on public.task_series (user_id);
 create index if not exists pomodoro_sessions_user_id_idx on public.pomodoro_sessions (user_id);
+
+-- Sprint 9.2: analytics/dashboard performance. tasks.completed_at is
+-- range-filtered on every analytics load; pomodoro_sessions is queried by
+-- user_id + completed = true + an ended_at range on every analytics/
+-- dashboard/pomodoro-page load, so a single composite index matching that
+-- exact predicate shape (equality columns first, range column last) serves
+-- all three call sites in one index rather than three separate ones.
+create index if not exists tasks_completed_at_idx on public.tasks (completed_at);
+create index if not exists pomodoro_sessions_user_completed_ended_at_idx
+  on public.pomodoro_sessions (user_id, completed, ended_at);
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at

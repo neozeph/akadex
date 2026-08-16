@@ -23,6 +23,11 @@ export function PomodoroTimer({
   const [isRunning, setIsRunning] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(focusMinutes * 60)
   const [sessionsCompleted, setSessionsCompleted] = useState(0)
+  // Announced via an sr-only live region below — only ever set at discrete
+  // mode-switch/session-completion moments, never from the per-second tick,
+  // so screen reader users hear "Focus session completed. Break started."
+  // instead of a running "24:59, 24:58, ..." countdown.
+  const [announcement, setAnnouncement] = useState("")
   const [isPending, startTransition] = useTransition()
   const startedAtRef = useRef<string | null>(null)
 
@@ -117,6 +122,9 @@ export function PomodoroTimer({
     sessionIdRef.current = crypto.randomUUID()
     setMode(nextMode)
     setSecondsLeft(nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+    setAnnouncement(
+      `${mode === "focus" ? "Focus" : "Break"} session completed. ${nextMode === "focus" ? "Focus" : "Break"} started.`,
+    )
   }, [secondsLeft, mode, initialSeconds, focusMinutes, breakMinutes, onCompleteSession, startTransition])
 
   // Saved preferences (focusMinutes/breakMinutes) can change after mount —
@@ -152,6 +160,7 @@ export function PomodoroTimer({
     sessionIdRef.current = crypto.randomUUID()
     setMode(nextMode)
     setSecondsLeft(nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+    setAnnouncement(`${nextMode === "focus" ? "Focus" : "Break"} started.`)
   }
 
   function toggleRunning() {
@@ -168,6 +177,10 @@ export function PomodoroTimer({
 
   return (
     <div className="space-y-4">
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
       <div className="flex items-center justify-center gap-2">
         <Button
           variant={mode === "focus" ? "default" : "outline"}

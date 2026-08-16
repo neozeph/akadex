@@ -87,7 +87,7 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
           name="q"
           defaultValue={searchParams.q ?? ""}
           placeholder="Search tasks..."
-          className="h-9 w-full rounded-xl border border-border bg-background px-4 pl-10 text-sm outline-none transition focus:border-foreground"
+          className="h-9 w-full rounded-xl border border-border bg-background px-4 pl-10 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
         />
       </div>
 
@@ -98,7 +98,7 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
         id="subject-filter"
         name="subject"
         defaultValue={searchParams.subject ?? ""}
-        className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground sm:w-36"
+        className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20 sm:w-36"
       >
         <option value="">All Subjects</option>
         {subjects.map((subject) => (
@@ -115,7 +115,7 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
         id="priority-filter"
         name="priority"
         defaultValue={searchParams.priority ?? ""}
-        className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground sm:w-32"
+        className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20 sm:w-32"
       >
         <option value="">All Priorities</option>
         {TASK_PRIORITY_OPTIONS.map((priority) => (

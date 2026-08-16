@@ -48,7 +48,7 @@ export default async function SemestersPage() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Semesters"
         description="Organize subjects and track your academic performance."
@@ -142,6 +142,6 @@ export default async function SemestersPage() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   )
 }
