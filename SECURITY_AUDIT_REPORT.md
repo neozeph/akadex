@@ -16,8 +16,8 @@ Status counts across reviewed controls:
 
 | Status | Count |
 | --- | ---: |
-| PASS | 16 |
-| PARTIAL | 9 |
+| PASS | 17 |
+| PARTIAL | 8 |
 | FAIL | 5 |
 | MANUAL VERIFICATION REQUIRED | 7 |
 | NOT APPLICABLE | 6 |
@@ -37,7 +37,7 @@ Five most important findings:
 1. Persistent rate limiting is not implemented for signup, login, password reset, or email-triggering flows.
 2. Production security headers are implemented and locally verified, but still require deployed Vercel inspection before PASS.
 3. Supabase/Vercel/Brevo production settings cannot be proven from the repository and require manual verification.
-4. Raw Supabase/database error messages are rethrown in multiple server actions and data loaders.
+4. Password policy is raised in repository code, but Supabase production Auth policy still requires manual verification.
 5. Account export and self-service account deletion are not implemented.
 
 ## 2. Scope and Limitations
@@ -84,12 +84,12 @@ This is not a penetration test. No production attack traffic, account creation, 
 | -- | -------- | ----------------- | ------ | -------- | ---- | ----------------------- |
 | AKX-001 | High | Persistent rate limits | FAIL | No rate-limit middleware/store found; auth forms call Supabase directly in `src/components/auth/auth-form.tsx` and `forgot-password-form.tsx`; server actions contain no rate-limit checks. | Signup/reset/login abuse, email abuse, brute-force pressure, and Brevo cost/spam risk. | Add persistent per-IP and per-account limits using a shared store or provider controls; verify Supabase/Brevo limits. |
 | AKX-002 | Medium | Production security headers | PARTIAL | `next.config.ts` now applies security headers from `src/lib/security-headers.ts`; `src/lib/security-headers.test.ts` verifies CSP/header values and production-only HSTS; local `next start` check confirmed non-HSTS security headers on `/` and `private, no-store` on `/dashboard`. Production Vercel responses have not been inspected. | Clickjacking, weaker browser isolation, MIME sniffing, referrer leakage, and CSP gaps are reduced locally, but production deployment/header behavior remains unproven. | Deploy, inspect production headers on public/authenticated/redirect responses, then mark PASS only after verification. |
-| AKX-003 | Medium | Non-disclosing production errors | PARTIAL | Many actions/data loaders rethrow `error.message`, e.g. `src/app/(dashboard)/tasks/actions.ts`, `semesters/actions.ts`, `analytics/data.ts`. Auth forms map common errors safely. | Database/provider messages may reach users and reveal schema or operational detail. | Log sanitized diagnostics server-side and return generic user-facing errors. |
+| AKX-003 | Medium | Non-disclosing production errors | PASS | Raw `error.message` throws in server actions/data loaders were replaced with `throwPublicError()` from `src/lib/server-errors.ts`; `src/lib/server-errors.test.ts` verifies raw database/provider text is not returned. Auth provider messages are read only for safe copy mapping in `auth-form.tsx`. | Residual risk is limited to future code paths that bypass the shared helper. | Keep using `throwPublicError()` for provider/database failures and retain tests for raw-message leaks. |
 | AKX-004 | Medium | Parent-child ownership boundaries | PARTIAL | App actions verify semester ownership before subject mutation in `src/app/(dashboard)/semesters/[semesterId]/actions.ts`; SQL policy for `subjects` only checks `user_id = auth.uid()` in `supabase/schema.sql`. | If a future direct client path or server action mishandles `user_id`, DB policy does not independently prove `semester_id` belongs to same user. | Add DB constraints/triggers or stricter policies tying child rows to owned parent rows; add two-account tests. |
 | AKX-005 | Medium | Platform auth URL configuration | MANUAL VERIFICATION REQUIRED | Repo helper `src/lib/auth-redirect.ts` supports `NEXT_PUBLIC_APP_URL`; report from user verifies production flow, but Supabase Site URL/Redirect URLs and Vercel envs are not in repo. | Misconfigured production or preview deployments can reintroduce localhost or wrong-domain redirects. | Verify Vercel `NEXT_PUBLIC_APP_URL`, Supabase Site URL, allowed Redirect URLs, and fresh emails after redeploy. |
 | AKX-006 | Medium | Account export and deletion | FAIL | Privacy/terms pages exist; no account deletion/export server actions or UI found by search. | Users lack self-service privacy rights workflow and data lifecycle clarity. | Add authenticated export and deletion flows with re-authentication and documented retention. |
 | AKX-007 | Medium | Dependency vulnerability audit | MANUAL VERIFICATION REQUIRED | `package-lock.json` is committed and CI runs npm checks; `npm audit` failed locally and escalation was rejected for external data egress. | Known vulnerable packages may remain untriaged. | Run `npm audit` or a trusted SCA tool in CI with explicit approval and triage results. |
-| AKX-008 | Low | Password policy | PARTIAL | `src/components/auth/update-password-form.tsx` sets `MIN_PASSWORD_LENGTH = 6`; signup relies on Supabase/provider policy and error mapping. | Six-character minimum is weaker than checklist recommendation of at least eight. | Enforce at least eight characters in Supabase Auth and client copy. |
+| AKX-008 | Low | Password policy | PARTIAL | Repository code now uses shared `MIN_PASSWORD_LENGTH = 8` in `src/lib/password-policy.ts`; signup and password update enforce it before submission; `src/lib/password-policy.test.ts` covers six/seven/eight-character cases and confirmation mismatch. Supabase production Auth policy still requires dashboard verification. | If Supabase production still allows shorter passwords through another client/API path, provider-level enforcement remains weaker than the app UI. | Set Supabase Auth password minimum to 8 in the dashboard and test signup/password recovery against the provider. |
 | AKX-009 | Low | No account enumeration | PARTIAL | Reset response is generic in `forgot-password-form.tsx`; signup/login map `already registered` and `email not confirmed` in `auth-form.tsx`. | Attackers may infer account existence or confirmation status through signup/login responses. | Use less revealing auth copy where acceptable and rely on out-of-band email. |
 | AKX-010 | Medium | Authenticated response cache policy | PARTIAL | `next.config.ts` now applies `Cache-Control: private, no-store` to dashboard routes, `/auth/callback`, and `/update-password`; local `next start` verification confirmed it on `/dashboard`. Production Vercel responses have not been inspected. | CDN/browser caching risk is reduced locally, but deployed behavior still needs confirmation. | Inspect production authenticated routes and redirects; mark PASS only after Vercel responses show `private, no-store`. |
 | AKX-011 | Low | Security contact | FAIL | No `public/.well-known/security.txt` or security contact file found. | Security reports may not reach the owner reliably. | Publish `/.well-known/security.txt` and monitor the contact channel. |
@@ -159,24 +159,26 @@ Verification:
 - Inspect headers on public pages, authenticated pages, redirects, errors, and static assets.
 - Confirm `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and absence of `X-Powered-By`.
 
-### AKX-003 - Raw provider/database errors may reach users
+### AKX-003 - Raw provider/database errors are mapped to safe messages
 
 Observed:
 
-- Server actions often do `throw new Error(error.message)`, including task, semester, subject, pomodoro, settings, and analytics paths.
-- Auth UI maps common Supabase auth errors to safer strings in `src/components/auth/auth-form.tsx`.
+- `src/lib/server-errors.ts` provides `throwPublicError()` and sanitized `logServerError()`.
+- Server actions and data loaders now use operation-specific generic messages instead of `throw new Error(error.message)`.
+- Safe validation/control-flow messages remain specific, including required fields, invalid enum/range values, unauthorized, and record-not-found cases.
+- Auth UI still reads provider messages only inside `getAuthErrorMessage()` to choose safe copy; raw provider text is not displayed.
+- `src/lib/server-errors.test.ts` verifies simulated database/provider internals are not returned to users and logs contain only operation/code context.
 
 Scenario:
 
-A database constraint, PostgREST, or provider error may expose schema names, policy details, or operational context in production error UI/log surfaces.
+Future code paths that directly rethrow provider/database messages could reintroduce schema, RLS, or PostgREST details in browser-facing errors.
 
 Recommended correction:
 
-- Return generic messages to users.
-- Log sanitized diagnostic context server-side.
-- Add tests for invalid IDs and constraint violations.
+- Continue using `throwPublicError()` for provider/database failures.
+- Add regression tests when new server actions/data loaders are created.
 
-Requires: code and tests.
+Requires: ongoing code review and tests for new paths.
 
 Verification:
 
@@ -277,26 +279,30 @@ Verification:
 
 - Confirm scan results are visible and triaged.
 
-### AKX-008 - Password minimum is six characters in client update form
+### AKX-008 - Password minimum is eight in code; Supabase policy pending
 
 Observed:
 
-- `src/components/auth/update-password-form.tsx` uses `MIN_PASSWORD_LENGTH = 6`.
-- Signup relies on Supabase policy and maps short-password errors.
+- `src/lib/password-policy.ts` defines `MIN_PASSWORD_LENGTH = 8`.
+- `src/components/auth/auth-form.tsx` rejects registration passwords shorter than eight before signup submission.
+- `src/components/auth/update-password-form.tsx` rejects new recovery passwords shorter than eight and keeps confirmation mismatch behavior.
+- `src/lib/password-policy.test.ts` verifies six- and seven-character passwords are rejected, eight-character passwords are accepted, and mismatches remain rejected.
+- Supabase production dashboard policy cannot be verified or changed from repository code.
 
 Scenario:
 
-If Supabase project policy also permits six-character passwords, accounts have weaker password resistance than the checklist recommendation.
+If Supabase production still permits passwords shorter than eight through another client/API path, provider-level enforcement remains weaker than the app UI.
 
 Recommended correction:
 
-- Raise app and Supabase Auth policy to at least eight characters.
+- In Supabase dashboard, set Auth password minimum length to 8 and verify provider-side enforcement.
 
-Requires: code and Supabase Auth configuration.
+Requires: Supabase Auth configuration.
 
 Verification:
 
 - Attempt six- and seven-character passwords in signup and recovery update flows.
+- Attempt the same against Supabase-backed production after the dashboard policy change.
 
 ### AKX-009 - Auth responses partly reveal account state
 
@@ -442,7 +448,7 @@ Supabase:
 3. Confirm no extra public policies, RPCs, views, or storage buckets bypass tenant isolation.
 4. Confirm Auth Site URL is `https://akadeks.vercel.app`.
 5. Confirm Redirect URLs include `https://akadeks.vercel.app/auth/callback` and local dev callback only as needed.
-6. Confirm password policy is at least eight characters if adopted.
+6. In Supabase Dashboard, open Authentication -> Providers -> Email (or Authentication -> Settings, depending on dashboard version), set the minimum password length to 8, save, then test signup and password recovery with seven- and eight-character passwords.
 7. Confirm email confirmation is required for sign-in if intended.
 8. Confirm backups, PITR/retention, and restore drill status.
 
@@ -530,7 +536,7 @@ Cleanup:
 
 | Task | Risk addressed | Likely files/components | Complexity | DB/dashboard access |
 | --- | --- | --- | --- | --- |
-| Replace raw provider errors with generic user errors | Information disclosure | Server actions/data loaders | Small/Medium | No |
+| Keep raw-provider-error regression coverage for new actions | Information disclosure | Future server actions/data loaders | Small | No |
 | Add account deletion/export | Privacy/user rights | Settings page, server actions, SQL cleanup | Large | Supabase required |
 | Raise password minimum to 8+ | Weak passwords | Auth config, update form | Small | Supabase required |
 | Add security contact | Reporting process | `public/.well-known/security.txt` | Small | No |

@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { throwPublicError } from "@/lib/server-errors"
 
 export async function getSettingsPageData() {
   const cookieStore = await cookies()
@@ -17,7 +18,7 @@ export async function getSettingsPageData() {
   ])
 
   if (profileResult.error) {
-    throw new Error(profileResult.error.message)
+    throwPublicError("settings.loadProfile", profileResult.error, "Unable to load your settings right now.")
   }
 
   return {

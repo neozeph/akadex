@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { addDaysISO, addMonthsISO, formatColumnMonthDay, formatMonthYearLabel, parseISODate, toISODate } from "@/lib/dates"
+import { throwPublicError } from "@/lib/server-errors"
 
 export const ANALYTICS_RANGES = ["7d", "30d", "all"] as const
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number]
@@ -125,11 +126,11 @@ export async function getActivityAnalyticsData(userId: string, range: AnalyticsR
   ])
 
   if (tasksResult.error) {
-    throw new Error(tasksResult.error.message)
+    throwPublicError("analytics.loadTaskActivity", tasksResult.error, "Unable to load your analytics right now.")
   }
 
   if (sessionsResult.error) {
-    throw new Error(sessionsResult.error.message)
+    throwPublicError("analytics.loadFocusActivity", sessionsResult.error, "Unable to load your analytics right now.")
   }
 
   const tasks = tasksResult.data ?? []

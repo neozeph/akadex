@@ -11,6 +11,7 @@ import { SemesterCard } from "@/components/academic/semester-card"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { formatSemesterLabel } from "@/lib/semesters"
+import { throwPublicError } from "@/lib/server-errors"
 
 import { createSemester, deleteSemester, updateSemester } from "./actions"
 
@@ -37,7 +38,7 @@ async function getSemesters() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("semesters.loadList", error, "Unable to load your semesters right now.")
   }
 
   return data ?? []

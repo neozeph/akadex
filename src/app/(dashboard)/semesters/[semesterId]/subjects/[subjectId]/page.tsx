@@ -16,6 +16,7 @@ import { toISODate } from "@/lib/dates"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { throwPublicError } from "@/lib/server-errors"
 
 import { deleteSubject, updateSubject } from "@/app/(dashboard)/semesters/[semesterId]/actions"
 import { createTask, deleteTask, setTaskCompletion, updateTask } from "@/app/(dashboard)/tasks/actions"
@@ -83,11 +84,11 @@ async function getSubjectWorkspaceData(semesterId: string, subjectId: string) {
   }
 
   if (allSubjectsResult.error) {
-    throw new Error(allSubjectsResult.error.message)
+    throwPublicError("subjectWorkspace.loadSubjects", allSubjectsResult.error, "Unable to load this subject right now.")
   }
 
   if (tasksResult.error) {
-    throw new Error(tasksResult.error.message)
+    throwPublicError("subjectWorkspace.loadTasks", tasksResult.error, "Unable to load this subject right now.")
   }
 
   // Without generated Supabase types, an embedded relationship is typed as

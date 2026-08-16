@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { DEFAULT_BREAK_MINUTES, DEFAULT_FOCUS_MINUTES } from "@/lib/pomodoro"
+import { throwPublicError } from "@/lib/server-errors"
 
 function startOfToday() {
   const now = new Date()
@@ -33,15 +34,15 @@ export async function getPomodoroPageData(userId: string) {
   ])
 
   if (sessionsResult.error) {
-    throw new Error(sessionsResult.error.message)
+    throwPublicError("pomodoro.loadRecentSessions", sessionsResult.error, "Unable to load Pomodoro data right now.")
   }
 
   if (todaySessionsResult.error) {
-    throw new Error(todaySessionsResult.error.message)
+    throwPublicError("pomodoro.loadTodaySessions", todaySessionsResult.error, "Unable to load Pomodoro data right now.")
   }
 
   if (profileResult.error) {
-    throw new Error(profileResult.error.message)
+    throwPublicError("pomodoro.loadProfile", profileResult.error, "Unable to load Pomodoro data right now.")
   }
 
   const completedToday = (todaySessionsResult.data ?? []).filter((session) => session.completed)

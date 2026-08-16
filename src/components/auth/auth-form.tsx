@@ -7,7 +7,9 @@ import { Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/auth/password-input"
 import { getAuthCallbackUrl } from "@/lib/auth-redirect"
+import { getPasswordLengthMessage, validatePasswordLength } from "@/lib/password-policy"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type AuthFormProps = {
@@ -36,7 +38,7 @@ function getAuthErrorMessage(error: { message: string; status?: number }): strin
     return "An account with that email already exists. Try signing in instead."
   }
   if (raw.includes("password should be at least") || raw.includes("password is too short")) {
-    return "Your password is too short. Use at least 6 characters."
+    return getPasswordLengthMessage()
   }
   if (raw.includes("rate limit") || error.status === 429) {
     return "Too many attempts. Please wait a moment and try again."
@@ -64,6 +66,12 @@ export function AuthForm({ mode }: AuthFormProps) {
     setMessage(null)
 
     if (mode === "register") {
+      if (!validatePasswordLength(password)) {
+        setMessage(getPasswordLengthMessage())
+        setLoading(false)
+        return
+      }
+
       const { data: signUpData, error } = await supabase.auth.signUp({
         email,
         password,
@@ -172,13 +180,14 @@ export function AuthForm({ mode }: AuthFormProps) {
             </Link>
           ) : null}
         </div>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
           autoComplete={mode === "login" ? "current-password" : "new-password"}
+          minLength={mode === "register" ? 8 : undefined}
+          required
         />
       </div>
 

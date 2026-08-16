@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { GRADE_OPTIONS } from "@/lib/grades"
+import { throwPublicError } from "@/lib/server-errors"
 
 async function getAuthedSupabase() {
   const cookieStore = await cookies()
@@ -95,7 +96,7 @@ export async function createSubject(formData: FormData) {
   })
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("subjects.create", error, "Unable to create the subject. Please try again.")
   }
 
   revalidatePath(`/semesters/${semesterId}`)
@@ -138,7 +139,7 @@ export async function updateSubject(formData: FormData) {
     .eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("subjects.update", error, "Unable to update the subject. Please try again.")
   }
 
   revalidatePath(`/semesters/${semesterId}`)
@@ -165,7 +166,7 @@ export async function deleteSubject(formData: FormData) {
     .eq("user_id", userId)
 
   if (error) {
-    throw new Error(error.message)
+    throwPublicError("subjects.delete", error, "Unable to delete the subject. Please try again.")
   }
 
   revalidatePath(`/semesters/${semesterId}`)
