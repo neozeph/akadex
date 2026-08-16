@@ -35,7 +35,7 @@ export default async function PomodoroPage() {
     await getPomodoroPageData(userId)
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Pomodoro"
         description="Stay focused with structured study sessions."
@@ -145,6 +145,6 @@ export default async function PomodoroPage() {
           )}
         </div>
       </section>
-    </main>
+    </div>
   )
 }

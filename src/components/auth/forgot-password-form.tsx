@@ -26,7 +26,11 @@ export function ForgotPasswordForm() {
 
   if (status === "sent") {
     return (
-      <p className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+      <p
+        role="status"
+        aria-live="polite"
+        className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground"
+      >
         Check your email. We&apos;ve sent password reset instructions to {email} if an account exists for that address.
       </p>
     )
@@ -50,7 +54,7 @@ export function ForgotPasswordForm() {
       </div>
 
       {status === "error" ? (
-        <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <p role="alert" className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Something went wrong. Please try again.
         </p>
       ) : null}

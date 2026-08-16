@@ -4,7 +4,7 @@ import { Compass, GraduationCap, Sparkles, Trees } from "lucide-react"
 import { PageShell } from "@/components/landing/PageShell"
 
 export const metadata: Metadata = {
-  title: "About Akadex",
+  title: "About",
   description: "The story behind Akadex and the mission to help students build calm, confident academic habits.",
 }
 

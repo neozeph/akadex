@@ -88,7 +88,7 @@ export function EditSubjectDialog({ open, onOpenChange, semesterId, subject, onS
               id="edit-subject-code"
               name="subject_code"
               defaultValue={subject.subject_code}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm font-mono uppercase outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm font-mono uppercase outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             />
@@ -102,7 +102,7 @@ export function EditSubjectDialog({ open, onOpenChange, semesterId, subject, onS
               id="edit-subject-name"
               name="subject_name"
               defaultValue={subject.subject_name}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             />
@@ -121,7 +121,7 @@ export function EditSubjectDialog({ open, onOpenChange, semesterId, subject, onS
                 min="0.5"
                 max="10"
                 defaultValue={subject.units}
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                 disabled={isPending}
                 required
               />
@@ -135,7 +135,7 @@ export function EditSubjectDialog({ open, onOpenChange, semesterId, subject, onS
                 id="edit-subject-grade"
                 name="grade"
                 defaultValue={subject.grade === null ? "" : subject.grade.toFixed(2)}
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                 disabled={isPending}
               >
                 <option value="">No grade yet</option>

@@ -95,7 +95,7 @@ export function CreateSemesterDialog({ onCreate, currentYear, trigger }: CreateS
               id="year_level"
               name="year_level"
               defaultValue={1}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             >
@@ -115,7 +115,7 @@ export function CreateSemesterDialog({ onCreate, currentYear, trigger }: CreateS
               id="term"
               name="term"
               defaultValue="1"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
               disabled={isPending}
               required
             >
@@ -137,7 +137,7 @@ export function CreateSemesterDialog({ onCreate, currentYear, trigger }: CreateS
                 name="school_year_start"
                 value={schoolYearStart}
                 onChange={(event) => setSchoolYearStart(Number(event.target.value))}
-                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
                 disabled={isPending}
                 required
               >

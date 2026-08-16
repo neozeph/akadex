@@ -1,8 +1,8 @@
-# AKADEKS Product Requirements Document (PRD)
+# AKADEX Product Requirements Document (PRD)
 
 ## Product Overview
 
-AKADEKS is a web-based academic productivity platform designed to help students organize coursework, manage tasks, track study sessions, and improve productivity through an integrated academic workspace.
+AKADEX is a web-based academic productivity platform designed to help students organize coursework, manage tasks, track study sessions, and improve productivity through an integrated academic workspace.
 
 The platform combines task management, subject organization, productivity tracking, and focus tools into a single application tailored for students.
 
@@ -12,7 +12,7 @@ The platform combines task management, subject organization, productivity tracki
 
 Students often rely on multiple applications to manage their academic responsibilities, including calendars, to-do lists, note-taking tools, and study timers. This fragmented workflow leads to context switching, reduced productivity, missed deadlines, and poor organization.
 
-AKADEKS aims to centralize these functions into one cohesive platform.
+AKADEX aims to centralize these functions into one cohesive platform.
 
 ---
 

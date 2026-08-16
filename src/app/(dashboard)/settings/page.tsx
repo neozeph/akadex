@@ -21,7 +21,7 @@ export default async function SettingsPage() {
   const currentName = profile?.full_name ?? user.user_metadata?.full_name ?? ""
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Settings"
         description="Manage your Akadex account and preferences."
@@ -97,7 +97,7 @@ export default async function SettingsPage() {
               name="full_name"
               defaultValue={currentName}
               placeholder="Juan Dela Cruz"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
             />
             <p className="mt-2 text-sm text-muted-foreground">
               Leave this blank if you want to clear the display name.
@@ -140,6 +140,6 @@ export default async function SettingsPage() {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   )
 }

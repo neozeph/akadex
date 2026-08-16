@@ -96,7 +96,7 @@ export function DashboardNavbarClient({ displayName, initials }: DashboardNavbar
               aria-label="Analytics"
               aria-current={pathname === "/analytics" ? "page" : undefined}
               className={cn(
-                "flex size-8 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "flex size-10 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 pathname === "/analytics"
                   ? "border-primary/50 bg-accent text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
@@ -109,7 +109,7 @@ export function DashboardNavbarClient({ displayName, initials }: DashboardNavbar
               aria-label="Settings"
               aria-current={pathname === "/settings" ? "page" : undefined}
               className={cn(
-                "flex size-8 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "flex size-10 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 pathname === "/settings"
                   ? "border-primary/50 bg-accent text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",

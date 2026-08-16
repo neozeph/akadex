@@ -24,7 +24,7 @@ export default async function TasksPage({
   const todayISO = toISODate(new Date())
 
   return (
-    <main className="space-y-4">
+    <div className="space-y-4">
       <PageHeader
         title="Tasks"
         description="Manage your academic and personal tasks."
@@ -49,6 +49,6 @@ export default async function TasksPage({
         onUpdateTask={updateTask}
         onSetTaskCompletion={setTaskCompletion}
       />
-    </main>
+    </div>
   )
 }

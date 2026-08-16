@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { PageShell } from "@/components/landing/PageShell"
 
 export const metadata: Metadata = {
-  title: "Akadex Changelog",
+  title: "Changelog",
   description: "See the latest updates and improvements to Akadex as the product continues to grow.",
 }
 

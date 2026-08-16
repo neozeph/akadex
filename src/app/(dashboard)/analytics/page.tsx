@@ -43,7 +43,7 @@ export default async function AnalyticsPage({
   const rangeLabel = range === "7d" ? "7 days" : range === "30d" ? "30 days" : "all time"
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Analytics" description="Understand your academic and study patterns." />
 
       {!hasSemesters ? (
@@ -231,6 +231,6 @@ export default async function AnalyticsPage({
           </div>
         </div>
       </section>
-    </main>
+    </div>
   )
 }

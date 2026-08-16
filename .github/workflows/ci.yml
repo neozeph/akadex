@@ -23,6 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Safe, obviously-fake placeholders — not real credentials. No route is
+    # currently statically prerendered with Supabase access, so these aren't
+    # exercised at runtime today; they exist so a future page that does
+    # touch Supabase during the build fails on its own logic instead of on
+    # a missing-env-var error unrelated to what's actually being tested.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

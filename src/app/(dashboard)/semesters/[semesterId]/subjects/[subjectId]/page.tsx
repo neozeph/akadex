@@ -145,7 +145,7 @@ export default async function SubjectWorkspacePage({
     }))
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <Link
         href={`/semesters/${semester.id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -225,6 +225,6 @@ export default async function SubjectWorkspacePage({
           </div>
         )}
       </section>
-    </main>
+    </div>
   )
 }
