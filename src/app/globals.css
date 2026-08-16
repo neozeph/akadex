@@ -166,3 +166,64 @@
     box-shadow: 0 18px 50px -30px rgba(15, 23, 42, 0.35);
   }
 }
+
+/* Landing entrance-motion guardrails: content driven by <Reveal> must stay
+   fully visible without relying on animation. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+@media (scripting: none) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Stacked product-screenshot gallery: each card's resting offset grows with
+   its distance from the front (index 0), scaling smoothly between mobile
+   and desktop via clamp() instead of per-breakpoint utility classes. Hover
+   pulls a back card slightly further out from under the front one — a
+   "reveal", not a reorder, so the front card stays dominant. */
+.screenshot-stack-item {
+  transition: transform 250ms ease-out, box-shadow 250ms ease-out;
+  transform: translate(var(--stack-x, 0), var(--stack-y, 0)) scale(var(--stack-scale, 1));
+}
+.screenshot-stack-item[data-stack-index="0"] {
+  --stack-x: 0px;
+  --stack-y: 0px;
+  --stack-scale: 1;
+}
+.screenshot-stack-item[data-stack-index="1"] {
+  --stack-x: clamp(-1.25rem, -3vw, -1.75rem);
+  --stack-y: clamp(1.5rem, 3vw, 2.25rem);
+  --stack-scale: 0.97;
+}
+.screenshot-stack-item[data-stack-index="2"] {
+  --stack-x: clamp(-2.25rem, -5.5vw, -3.25rem);
+  --stack-y: clamp(2.75rem, 5.5vw, 4rem);
+  --stack-scale: 0.94;
+}
+.screenshot-stack-item[data-stack-index="3"] {
+  --stack-x: clamp(-3.25rem, -8vw, -4.75rem);
+  --stack-y: clamp(4rem, 8vw, 5.75rem);
+  --stack-scale: 0.91;
+}
+.screenshot-stack-item[data-stack-index="0"]:hover,
+.screenshot-stack-item[data-stack-index="0"]:focus-visible {
+  --stack-scale: 1.01;
+}
+.screenshot-stack-item:not([data-stack-index="0"]):hover,
+.screenshot-stack-item:not([data-stack-index="0"]):focus-visible {
+  transform: translate(calc(var(--stack-x) * 1.35), calc(var(--stack-y) * 1.35)) scale(var(--stack-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screenshot-stack-item {
+    transition: none;
+  }
+}
