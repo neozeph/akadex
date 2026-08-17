@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono, Nunito_Sans, Silkscreen } from "next/font/google"
 
 import { ThemeProvider } from "@/components/theme/theme-provider"
+import { siteDescription, siteUrl } from "@/lib/seo"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -25,41 +26,69 @@ const silkscreen = Silkscreen({
   subsets: ["latin"],
 })
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-const description =
-  "Akadex is a cozy academic companion for organizing semesters, tracking grades, planning tasks, focusing with Pomodoro, and understanding academic progress."
+const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
 
 export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Akadex",
+    default: "Akadex - Academic Companion for Students",
     template: "%s | Akadex",
   },
-  description,
+  description: siteDescription,
+  keywords: [
+    "Akadex",
+    "GWA calculator",
+    "grade tracker",
+    "student planner",
+    "academic tracker",
+    "study companion",
+    "Philippines",
+  ],
   applicationName: "Akadex",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: "/brand/akadex.svg",
     shortcut: "/brand/akadex.svg",
     apple: "/brand/akadex.svg",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: googleSiteVerification
+    ? {
+        google: googleSiteVerification,
+      }
+    : undefined,
   openGraph: {
-    title: "Akadex",
-    description,
+    title: "Akadex - Academic Companion for Students",
+    description: siteDescription,
     type: "website",
     siteName: "Akadex",
+    url: "/",
+    locale: "en_US",
     images: [
       {
         url: "/brand/hero.webp",
         width: 1672,
         height: 941,
-        alt: "Akadex — a cozy academic companion",
+        alt: "Akadex - a cozy academic companion",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Akadex",
-    description,
+    title: "Akadex - Academic Companion for Students",
+    description: siteDescription,
     images: ["/brand/hero.webp"],
   },
 }
@@ -76,6 +105,19 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${nunitoSans.variable} ${silkscreen.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Akadex",
+              url: siteUrl,
+              description: siteDescription,
+            }),
+          }}
+        />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
