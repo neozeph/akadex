@@ -9,12 +9,14 @@ import { cn } from "@/lib/utils"
 
 type PlannerColumnProps = {
   ref?: React.Ref<HTMLElement>
+  title: string
   /** null renders the leading "No Due Date" column instead of a dated one. */
   dateISO: string | null
   isToday: boolean
   isOverdue: boolean
   tasks: TaskRecord[]
   subjects: TaskSubjectOption[]
+  getTaskDueDateLabel?: (task: TaskRecord) => string | null
   onCreateTask: (formData: FormData) => Promise<void>
   onUpdateTask: (formData: FormData) => Promise<void>
   onDeleteTask: (formData: FormData) => Promise<void>
@@ -30,7 +32,7 @@ type PlannerColumnProps = {
  * label lines up with the two-line weekday/date headers on dated columns —
  * that's what keeps every column top-aligned and gives them a consistent
  * header height regardless of content. Below it, the task list and the
- * "+ Add task" quick-add sit together in one `max-h-* overflow-y-auto`
+ * "+ Add task" quick-add sit together in one vertical scroll region
  * region: quick-add renders as the last item right after the final task, so
  * a sparse column stays naturally short instead of stretching to push it to
  * a fixed bottom, and a busy column scrolls the whole region — tasks and
@@ -38,24 +40,26 @@ type PlannerColumnProps = {
  */
 export function PlannerColumn({
   ref,
+  title,
   dateISO,
   isToday,
   isOverdue,
   tasks,
   subjects,
+  getTaskDueDateLabel,
   onCreateTask,
   onUpdateTask,
   onDeleteTask,
   onSetTaskCompletion,
 }: PlannerColumnProps) {
-  const headingId = `planner-column-${dateISO ?? "no-due-date"}`
+  const headingId = `planner-column-${dateISO ?? title.toLowerCase().replace(/\s+/g, "-")}`
   const quickAddLabel = dateISO ? `Add task for ${formatFullDate(dateISO)}` : "Add task without due date"
 
   return (
     <section
       ref={ref}
       aria-labelledby={headingId}
-      className="flex w-[260px] shrink-0 flex-col gap-2 sm:w-[280px]"
+      className="flex w-[260px] max-w-[260px] shrink-0 flex-col gap-2 overflow-x-hidden sm:w-[280px] sm:max-w-[280px]"
     >
       <header
         className={cn(
@@ -66,9 +70,12 @@ export function PlannerColumn({
         {dateISO === null ? (
           <h3
             id={headingId}
-            className="font-accent text-sm font-semibold tracking-[0.05em] text-foreground uppercase"
+            className={cn(
+              "font-accent text-sm font-semibold tracking-[0.05em] uppercase",
+              isOverdue ? "text-terracotta" : "text-foreground",
+            )}
           >
-            No Due Date
+            {title}
           </h3>
         ) : (
           <>
@@ -99,7 +106,7 @@ export function PlannerColumn({
         )}
       </header>
 
-      <div className="flex max-h-[55vh] flex-col gap-2 overflow-y-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto">
         {tasks.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
             No tasks
@@ -113,6 +120,7 @@ export function PlannerColumn({
               onUpdateTask={onUpdateTask}
               onDeleteTask={onDeleteTask}
               onSetTaskCompletion={onSetTaskCompletion}
+              dueDateLabel={getTaskDueDateLabel?.(task)}
             />
           ))
         )}
@@ -120,7 +128,7 @@ export function PlannerColumn({
         <CreateTaskDialog
           onCreate={onCreateTask}
           subjects={subjects}
-          initialDueDate={dateISO ?? ""}
+          initialDueDate={isOverdue ? "" : (dateISO ?? "")}
           trigger={
             <button
               type="button"

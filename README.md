@@ -24,19 +24,19 @@ Repository evidence shows these features are implemented:
 
 ## Technology Stack
 
-| Technology | Role in Akadex |
-| --- | --- |
-| Next.js 16 App Router | Routing, layouts, Server Components, route handlers, server actions, metadata, and production build. |
-| React 19 | Interactive UI, Client Components, forms, charts, dialogs, timer, and theme controls. |
-| TypeScript | Static typing across app routes, components, utilities, tests, and configuration. |
-| Supabase Auth | Email/password accounts, verification links, recovery links, sessions, and user identity. |
-| Supabase/PostgreSQL | Application data storage for profiles, semesters, subjects, tasks, recurring task series, and Pomodoro sessions. |
-| Row Level Security | Database-side tenant isolation using `auth.uid()` ownership policies. |
-| Tailwind CSS 4 and shadcn-style primitives | App styling, theme tokens, UI primitives, and responsive layout. |
-| Vitest | Unit tests for dates, recurrence, analytics activity logic, password policy, password input behavior, safe errors, Pomodoro helpers, and security headers. |
-| GitHub Actions | CI quality checks on `main` and `dev`, plus automatic `dev` to `main` PR creation after successful `dev` CI. |
-| Vercel | Hosting and production deployment. |
-| Brevo | Email provider through Supabase custom SMTP; dashboard configuration is outside repository evidence. |
+| Technology                                 | Role in Akadex                                                                                                                                             |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Next.js 16 App Router                      | Routing, layouts, Server Components, route handlers, server actions, metadata, and production build.                                                       |
+| React 19                                   | Interactive UI, Client Components, forms, charts, dialogs, timer, and theme controls.                                                                      |
+| TypeScript                                 | Static typing across app routes, components, utilities, tests, and configuration.                                                                          |
+| Supabase Auth                              | Email/password accounts, verification links, recovery links, sessions, and user identity.                                                                  |
+| Supabase/PostgreSQL                        | Application data storage for profiles, semesters, subjects, tasks, recurring task series, and Pomodoro sessions.                                           |
+| Row Level Security                         | Database-side tenant isolation using `auth.uid()` ownership policies.                                                                                      |
+| Tailwind CSS 4 and shadcn-style primitives | App styling, theme tokens, UI primitives, and responsive layout.                                                                                           |
+| Vitest                                     | Unit tests for dates, recurrence, analytics activity logic, password policy, password input behavior, safe errors, Pomodoro helpers, and security headers. |
+| GitHub Actions                             | CI quality checks on `main` and `dev`, plus automatic `dev` to `main` PR creation after successful `dev` CI.                                               |
+| Vercel                                     | Hosting and production deployment.                                                                                                                         |
+| Brevo                                      | Email provider through Supabase custom SMTP; dashboard configuration is outside repository evidence.                                                       |
 
 ## Architecture Overview
 
@@ -79,11 +79,11 @@ Open http://localhost:3000.
 
 Configure `.env.local` with placeholders from `.env.example`:
 
-| Variable | Required | Browser-visible | Purpose |
-| --- | ---: | ---: | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Supabase project URL used by browser and server Supabase clients. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Yes | Supabase publishable/anon key used with RLS-protected client access. |
-| `NEXT_PUBLIC_APP_URL` | Yes for production, useful locally | Yes | Canonical app origin for metadata and auth email callback URLs. Local default is `http://localhost:3000`; production should use `https://akadex.vercel.app`. |
+| Variable                               |                           Required | Browser-visible | Purpose                                                                                                                                                      |
+| -------------------------------------- | ---------------------------------: | --------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`             |                                Yes |             Yes | Supabase project URL used by browser and server Supabase clients.                                                                                            |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |                                Yes |             Yes | Supabase publishable/anon key used with RLS-protected client access.                                                                                         |
+| `NEXT_PUBLIC_APP_URL`                  | Yes for production, useful locally |             Yes | Canonical app origin for metadata and auth email callback URLs. Local default is `http://localhost:3000`; production should use `https://akadex.vercel.app`. |
 
 Do not put private secrets in `NEXT_PUBLIC_*` variables. In particular, the Supabase service-role key must never be exposed to the browser or committed to the repository.
 
@@ -95,15 +95,15 @@ For a new Supabase project, review the schema, then apply it in the Supabase SQL
 
 ## Scripts
 
-| Script | Command | Purpose |
-| --- | --- | --- |
-| `dev` | `next dev` | Start the local development server. |
-| `build` | `next build` | Create a production build. |
-| `start` | `next start` | Serve the built production app locally. |
-| `lint` | `eslint` | Run ESLint. |
-| `typecheck` | `next typegen && tsc --noEmit` | Generate Next types and run TypeScript checks. |
-| `test` | `vitest run` | Run the test suite once. |
-| `test:watch` | `vitest` | Run Vitest in watch mode. |
+| Script       | Command                        | Purpose                                        |
+| ------------ | ------------------------------ | ---------------------------------------------- |
+| `dev`        | `next dev`                     | Start the local development server.            |
+| `build`      | `next build`                   | Create a production build.                     |
+| `start`      | `next start`                   | Serve the built production app locally.        |
+| `lint`       | `eslint`                       | Run ESLint.                                    |
+| `typecheck`  | `next typegen && tsc --noEmit` | Generate Next types and run TypeScript checks. |
+| `test`       | `vitest run`                   | Run the test suite once.                       |
+| `test:watch` | `vitest`                       | Run Vitest in watch mode.                      |
 
 ## CI and Branch Workflow
 
@@ -162,10 +162,9 @@ Evidence-based next steps:
 
 ## Documentation
 
-- [docs/Akadex-System-Guide.md](docs/Akadex-System-Guide.md) explains how the full system works for learning and maintenance.
 - [docs/Architecture.md](docs/Architecture.md), [docs/Database.md](docs/Database.md), [docs/PRD.md](docs/PRD.md), and [docs/SprintPlan.md](docs/SprintPlan.md) are older project documents and may lag behind implementation details.
 - [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md) tracks the current security review state.
 
 ## Contribution and License
 
-No license file is currently present in the repository. Do not assume the project is open-source licensed. The project is currently maintained by its owner; contribution rules have not been formally documented.
+No license file is currently present in the repository. Do not assume the project is open-source licensed. The project is currently maintained by its owner.

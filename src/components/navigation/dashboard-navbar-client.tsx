@@ -1,8 +1,17 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChartNoAxesCombined, LayoutDashboard, NotebookTabs, Settings2, SquareCheckBig, TimerReset } from "lucide-react"
+import {
+  ChartNoAxesCombined,
+  LayoutDashboard,
+  LoaderCircle,
+  NotebookTabs,
+  Settings2,
+  SquareCheckBig,
+  TimerReset,
+} from "lucide-react"
 
 import { BrandMark } from "@/components/brand/brand-mark"
 import { SignOutButton } from "@/components/auth/sign-out-button"
@@ -30,6 +39,14 @@ type DashboardNavbarClientProps = {
 
 export function DashboardNavbarClient({ displayName, initials }: DashboardNavbarClientProps) {
   const pathname = usePathname()
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+  const visiblePendingHref = pendingHref === pathname ? null : pendingHref
+
+  function markPending(href: string) {
+    if (href !== pathname) {
+      setPendingHref(href)
+    }
+  }
 
   return (
     <>
@@ -54,22 +71,31 @@ export function DashboardNavbarClient({ displayName, initials }: DashboardNavbar
           <nav className="flex flex-1 flex-col gap-1">
             {links.map((link) => {
               const active = pathname === link.href
+              const pending = visiblePendingHref === link.href
               const Icon = link.icon
 
               return (
                 <Link
                   key={link.href}
                   href={link.href}
+                  onClick={() => markPending(link.href)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex h-11 w-full items-center gap-3 rounded-2xl border px-4 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
                     active
                       ? "border-primary/50 bg-accent text-primary"
                       : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+                    pending && "border-border bg-accent/60 text-foreground",
                   )}
                 >
                   <Icon className="size-4" />
-                  {link.label}
+                  <span className="min-w-0 flex-1">{link.label}</span>
+                  {pending ? (
+                    <LoaderCircle
+                      className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                  ) : null}
                 </Link>
               )
             })}
@@ -94,28 +120,40 @@ export function DashboardNavbarClient({ displayName, initials }: DashboardNavbar
             <Link
               href="/analytics"
               aria-label="Analytics"
+              onClick={() => markPending("/analytics")}
               aria-current={pathname === "/analytics" ? "page" : undefined}
               className={cn(
                 "flex size-10 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 pathname === "/analytics"
                   ? "border-primary/50 bg-accent text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+                visiblePendingHref === "/analytics" && "border-border bg-accent/60 text-foreground",
               )}
             >
-              <ChartNoAxesCombined className="size-4" />
+              {visiblePendingHref === "/analytics" ? (
+                <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <ChartNoAxesCombined className="size-4" />
+              )}
             </Link>
             <Link
               href="/settings"
               aria-label="Settings"
+              onClick={() => markPending("/settings")}
               aria-current={pathname === "/settings" ? "page" : undefined}
               className={cn(
                 "flex size-10 items-center justify-center rounded-xl border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 pathname === "/settings"
                   ? "border-primary/50 bg-accent text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+                visiblePendingHref === "/settings" && "border-border bg-accent/60 text-foreground",
               )}
             >
-              <Settings2 className="size-4" />
+              {visiblePendingHref === "/settings" ? (
+                <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Settings2 className="size-4" />
+              )}
             </Link>
             <ThemeToggle />
             <SignOutButton className="justify-center" />
@@ -130,21 +168,28 @@ export function DashboardNavbarClient({ displayName, initials }: DashboardNavbar
         <div className="grid grid-cols-4 gap-1 p-1.5">
           {mobileTabs.map((link) => {
             const active = pathname === link.href
+            const pending = visiblePendingHref === link.href
             const Icon = link.icon
 
             return (
               <Link
                 key={link.href}
                 href={link.href}
+                onClick={() => markPending(link.href)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-2xl border px-1.5 py-2 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   active
                     ? "border-primary/50 bg-accent text-primary hover:border-primary/50 hover:bg-accent hover:text-primary dark:border-border dark:bg-secondary dark:text-primary"
                     : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+                  pending && "border-border bg-accent/60 text-foreground",
                 )}
               >
-                <Icon className="size-5" />
+                {pending ? (
+                  <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <Icon className="size-5" />
+                )}
                 {link.label}
               </Link>
             )

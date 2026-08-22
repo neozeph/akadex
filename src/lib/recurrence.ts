@@ -148,7 +148,7 @@ export async function synchronizeRecurringTaskOccurrences(
     return
   }
 
-  for (const series of seriesRows as TaskSeriesRow[]) {
+  await Promise.all((seriesRows as TaskSeriesRow[]).map(async (series) => {
     const rangeStart = series.last_generated_through
       ? addDaysISO(series.last_generated_through, 1)
       : series.start_date
@@ -157,7 +157,7 @@ export async function synchronizeRecurringTaskOccurrences(
       // Series doesn't start until after the current horizon — nothing to
       // generate yet, and the checkpoint stays untouched so a future run
       // (once the horizon reaches start_date) picks it up correctly.
-      continue
+      return
     }
 
     const occurrenceDates = getOccurrenceDates(
@@ -190,7 +190,7 @@ export async function synchronizeRecurringTaskOccurrences(
       // Leave it as-is so the next run (next page load) retries the same
       // range; other series still get processed this run.
       if (upsertError) {
-        continue
+        return
       }
     }
 
@@ -199,5 +199,5 @@ export async function synchronizeRecurringTaskOccurrences(
       .update({ last_generated_through: horizonEnd })
       .eq("id", series.id)
       .eq("user_id", userId)
-  }
+  }))
 }

@@ -1,7 +1,15 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { DashboardNavbar } from "@/components/navigation/dashboard-navbar"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+}
 
 export default async function DashboardLayout({
   children,

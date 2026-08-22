@@ -5,6 +5,7 @@ import * as React from "react"
 import { type TaskRecord } from "@/components/tasks/task-card"
 import { PlannerColumn } from "@/components/tasks/planner-column"
 import { type TaskSubjectOption } from "@/components/tasks/task-form-fields"
+import { formatColumnMonthDay } from "@/lib/dates"
 
 type TaskBoardProps = {
   tasks: TaskRecord[]
@@ -18,24 +19,29 @@ type TaskBoardProps = {
 }
 
 type PlannerColumnData = {
+  id: string
+  title: string
   dateISO: string | null
+  isOverdueColumn?: boolean
   tasks: TaskRecord[]
 }
 
 /**
- * Builds one column per due_date that actually has a visible task, plus a
- * leading `dateISO: null` "No Due Date" column when any exist — no date
- * without a task is ever rendered, and there's no separate horizon/"Later"
- * cutoff: a task's real due_date always gets a real column, however far
- * past or future it is.
+ * Builds populated planner columns only: one Overdue bucket for all past
+ * due dates, then No Due Date, Today, and future dates in ascending order.
  */
-function buildPlannerColumns(tasks: TaskRecord[]): PlannerColumnData[] {
+function buildPlannerColumns(tasks: TaskRecord[], todayISO: string): PlannerColumnData[] {
+  const overdue: TaskRecord[] = []
   const noDueDate: TaskRecord[] = []
   const byDate = new Map<string, TaskRecord[]>()
 
   for (const task of tasks) {
     if (!task.due_date) {
       noDueDate.push(task)
+      continue
+    }
+    if (task.due_date < todayISO) {
+      overdue.push(task)
       continue
     }
     const bucket = byDate.get(task.due_date) ?? []
@@ -51,12 +57,22 @@ function buildPlannerColumns(tasks: TaskRecord[]): PlannerColumnData[] {
 
   const columns: PlannerColumnData[] = []
 
+  if (overdue.length > 0) {
+    columns.push({
+      id: "overdue",
+      title: "Overdue",
+      dateISO: null,
+      isOverdueColumn: true,
+      tasks: sortIncompleteFirst(overdue).sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? "")),
+    })
+  }
+
   if (noDueDate.length > 0) {
-    columns.push({ dateISO: null, tasks: sortIncompleteFirst(noDueDate) })
+    columns.push({ id: "no-due-date", title: "No Due Date", dateISO: null, tasks: sortIncompleteFirst(noDueDate) })
   }
 
   for (const dateISO of Array.from(byDate.keys()).sort()) {
-    columns.push({ dateISO, tasks: sortIncompleteFirst(byDate.get(dateISO) ?? []) })
+    columns.push({ id: dateISO, title: "", dateISO, tasks: sortIncompleteFirst(byDate.get(dateISO) ?? []) })
   }
 
   return columns
@@ -74,7 +90,7 @@ export function TaskBoard({
 }: TaskBoardProps) {
   const columnNodes = React.useRef(new Map<string, HTMLElement>())
   const hasAutoScrolled = React.useRef(false)
-  const columns = React.useMemo(() => buildPlannerColumns(tasks), [tasks])
+  const columns = React.useMemo(() => buildPlannerColumns(tasks, todayISO), [tasks, todayISO])
 
   React.useEffect(() => {
     // Initial scroll position only: land on Today (or the nearest future
@@ -84,7 +100,7 @@ export function TaskBoard({
     if (hasAutoScrolled.current) return
     hasAutoScrolled.current = true
 
-    const hasOverdueColumns = columns.some((column) => column.dateISO !== null && column.dateISO < todayISO)
+    const hasOverdueColumns = columns.some((column) => column.isOverdueColumn)
     if (!hasOverdueColumns) return
 
     const target = columns.find((column) => column.dateISO !== null && column.dateISO >= todayISO)
@@ -116,28 +132,34 @@ export function TaskBoard({
         role="region"
         aria-label="Task planner, scroll horizontally for more dates"
         tabIndex={0}
-        className="flex gap-3 overflow-x-auto pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="min-h-[calc(100vh-18rem)] overflow-x-auto pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {columns.map((column) => (
-          <PlannerColumn
-            key={column.dateISO ?? "no-due-date"}
-            ref={(node) => {
-              if (!column.dateISO) return
-              if (node) {
-                columnNodes.current.set(column.dateISO, node)
-              } else {
-                columnNodes.current.delete(column.dateISO)
+        <div className="flex min-w-max items-stretch gap-3">
+          {columns.map((column) => (
+            <PlannerColumn
+              key={column.id}
+              ref={(node) => {
+                if (!column.dateISO) return
+                if (node) {
+                  columnNodes.current.set(column.dateISO, node)
+                } else {
+                  columnNodes.current.delete(column.dateISO)
+                }
+              }}
+              title={column.title}
+              dateISO={column.dateISO}
+              isToday={column.dateISO === todayISO}
+              isOverdue={Boolean(column.isOverdueColumn)}
+              tasks={column.tasks}
+              subjects={subjects}
+              onCreateTask={onCreateTask}
+              getTaskDueDateLabel={
+                column.isOverdueColumn ? (task) => (task.due_date ? formatColumnMonthDay(task.due_date) : null) : undefined
               }
-            }}
-            dateISO={column.dateISO}
-            isToday={column.dateISO === todayISO}
-            isOverdue={column.dateISO !== null && column.dateISO < todayISO}
-            tasks={column.tasks}
-            subjects={subjects}
-            onCreateTask={onCreateTask}
-            {...cardHandlers}
-          />
-        ))}
+              {...cardHandlers}
+            />
+          ))}
+        </div>
       </div>
     </section>
   )

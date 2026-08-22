@@ -35,10 +35,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     },
   })
 
-  const [semestersResult, subjectsResult, tasksResult, upcomingTasksResult, pomodoroResult] = await Promise.all([
+  const [
+    semestersCountResult,
+    subjectsResult,
+    pendingTasksCountResult,
+    completedTasksCountResult,
+    upcomingTasksResult,
+    pomodoroResult,
+  ] = await Promise.all([
     supabase
       .from("semesters")
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId),
     supabase
       .from("subjects")
@@ -46,24 +53,29 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       .eq("user_id", userId),
     supabase
       .from("tasks")
-      .select("id, title, due_date, priority, status")
-      .eq("user_id", userId),
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .neq("status", "done"),
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "done"),
     supabase
       .from("tasks")
       .select("id, title, due_date, priority, status, tags, subject:subjects(subject_code, subject_name)")
       .eq("user_id", userId)
+      .neq("status", "done")
       .order("due_date", { ascending: true, nullsFirst: false })
       .limit(5),
     supabase
       .from("pomodoro_sessions")
-      .select("id, duration, completed, created_at")
+      .select("duration, completed")
       .eq("user_id", userId)
       .gte("created_at", startOfToday()),
   ])
 
-  const semesters = semestersResult.data ?? []
   const subjects = subjectsResult.data ?? []
-  const tasks = tasksResult.data ?? []
   const upcomingTasks = upcomingTasksResult.data ?? []
   const pomodoroSessions = pomodoroResult.data ?? []
 
@@ -81,9 +93,9 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   return {
     overallGpa,
     totalUnitsCompleted,
-    semesterCount: semesters.length,
-    pendingTaskCount: tasks.filter((task) => task.status !== "done").length,
-    completedTaskCount: tasks.filter((task) => task.status === "done").length,
+    semesterCount: semestersCountResult.count ?? 0,
+    pendingTaskCount: pendingTasksCountResult.count ?? 0,
+    completedTaskCount: completedTasksCountResult.count ?? 0,
     pomodoroSessionsToday: pomodoroSessions.filter((session) => session.completed).length,
     focusMinutesToday: Math.round(
       pomodoroSessions
@@ -91,7 +103,6 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         .reduce((sum, session) => sum + Number(session.duration), 0) / 60,
     ),
     upcomingTasks: upcomingTasks
-      .filter((task) => task.status !== "done")
       .map((task) => ({
         id: task.id,
         title: task.title,
