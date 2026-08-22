@@ -53,12 +53,12 @@ export function TaskCard({
     <>
       <article
         className={cn(
-          "group relative rounded-lg border bg-card p-2.5 pr-8 shadow-sm transition-colors duration-200 hover:bg-accent/40 hover:shadow-md",
+          "group relative w-full max-w-full overflow-hidden rounded-lg border bg-card p-2.5 pr-8 shadow-sm transition-colors duration-200 hover:bg-accent/40 hover:shadow-md",
           isDone ? "opacity-60 border-border" : priorityStyle.border,
         )}
       >
-        <div className="flex items-start gap-1.5">
-          <form action={onSetTaskCompletion}>
+        <div className="flex min-w-0 items-start gap-1.5">
+          <form action={onSetTaskCompletion} className="shrink-0">
             <input type="hidden" name="task_id" value={task.id} />
             <input type="hidden" name="completed" value={String(!isDone)} />
             <label className="relative mt-0.5 flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition before:absolute before:-inset-2.5 before:content-[''] hover:bg-accent hover:text-primary">
@@ -88,10 +88,10 @@ export function TaskCard({
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="min-w-0 flex-1 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-w-0 max-w-full flex-1 overflow-hidden rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`Edit ${task.title}${task.description ? `: ${task.description}` : ""}`}
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-1.5">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-1.5">
               <h3
                 className={cn(
                   "line-clamp-2 min-w-0 break-words text-sm font-semibold leading-5 text-foreground",
@@ -111,11 +111,11 @@ export function TaskCard({
             </div>
 
             {task.description ? (
-              <p className="mt-0.5 line-clamp-2 break-words text-xs leading-5 text-muted-foreground">{task.description}</p>
+              <p className="mt-0.5 line-clamp-2 min-w-0 break-words text-xs leading-5 text-muted-foreground">{task.description}</p>
             ) : null}
 
             {task.subject ? (
-              <p className="mt-0.5 truncate text-[0.68rem] font-medium text-muted-foreground">
+              <p className="mt-0.5 min-w-0 truncate text-[0.68rem] font-medium text-muted-foreground">
                 {task.subject.subject_code} · {task.subject.subject_name}
               </p>
             ) : null}

@@ -6,17 +6,9 @@ import { logPomodoroSession, updatePomodoroPreferences } from "./actions"
 import { getPomodoroPageData } from "./data"
 import { PomodoroTimer } from "@/components/pomodoro/pomodoro-timer"
 import { PomodoroSettingsDialog } from "@/components/pomodoro/pomodoro-settings-dialog"
+import { SessionTime } from "@/components/pomodoro/session-time"
 import { PageHeader } from "@/components/ui/page-header"
 import { Clock3, Flame, Hourglass, Zap } from "lucide-react"
-
-function formatSessionTime(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
-}
 
 function formatDuration(seconds: number) {
   const minutes = Math.round(seconds / 60)
@@ -129,7 +121,7 @@ export default async function PomodoroPage() {
                     {session.completed ? "Focus session completed" : "Incomplete session"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {formatSessionTime(session.created_at)}
+                    <SessionTime value={session.ended_at ?? session.created_at} />
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

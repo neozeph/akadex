@@ -1,16 +1,14 @@
 import { cookies } from "next/headers"
 import { NextResponse, type NextRequest } from "next/server"
 
-import { getAppOrigin } from "@/lib/auth-redirect"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
-  const appOrigin = getAppOrigin(origin)
   const code = searchParams.get("code")
 
   if (!code) {
-    return NextResponse.redirect(`${appOrigin}/login?error=missing_code`)
+    return NextResponse.redirect(new URL("/login?error=missing_code", origin))
   }
 
   const cookieStore = await cookies()
@@ -28,7 +26,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
-    return NextResponse.redirect(`${appOrigin}/login?error=confirmation_failed`)
+    return NextResponse.redirect(new URL("/login?error=confirmation_failed", origin))
   }
 
   // exchangeCodeForSession tags its result with "recovery" only when the code
@@ -39,8 +37,8 @@ export async function GET(request: NextRequest) {
   const redirectType = (data as { redirectType?: string | null }).redirectType
 
   if (redirectType === "recovery") {
-    return NextResponse.redirect(`${appOrigin}/update-password`)
+    return NextResponse.redirect(new URL("/update-password", origin))
   }
 
-  return NextResponse.redirect(`${appOrigin}/dashboard`)
+  return NextResponse.redirect(new URL("/dashboard", origin))
 }
