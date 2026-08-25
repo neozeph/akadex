@@ -5,8 +5,19 @@ import { Pause, Play, RotateCcw, CheckCircle2, Coffee } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { DEFAULT_BREAK_MINUTES, DEFAULT_FOCUS_MINUTES } from "@/lib/pomodoro"
-
-type Mode = "focus" | "break"
+import {
+  advancePomodoroSnapshot,
+  createIdlePomodoroSnapshot,
+  derivePomodoroSnapshot,
+  formatPomodoroClock,
+  getPomodoroTitle,
+  parsePomodoroSnapshot,
+  pausePomodoroSnapshot,
+  POMODORO_TIMER_STORAGE_KEY,
+  startPomodoroSnapshot,
+  type PomodoroMode,
+  type PomodoroTimerSnapshot,
+} from "@/lib/pomodoro-timer-state"
 
 type PomodoroTimerProps = {
   focusMinutes?: number
@@ -19,38 +30,21 @@ export function PomodoroTimer({
   breakMinutes = DEFAULT_BREAK_MINUTES,
   onCompleteSession,
 }: PomodoroTimerProps) {
-  const [mode, setMode] = useState<Mode>("focus")
-  const [isRunning, setIsRunning] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(focusMinutes * 60)
-  const [sessionsCompleted, setSessionsCompleted] = useState(0)
-  // Announced via an sr-only live region below — only ever set at discrete
-  // mode-switch/session-completion moments, never from the per-second tick,
-  // so screen reader users hear "Focus session completed. Break started."
-  // instead of a running "24:59, 24:58, ..." countdown.
+  const [snapshot, setSnapshot] = useState<PomodoroTimerSnapshot>(() =>
+    createIdlePomodoroSnapshot("focus", focusMinutes * 60, createCompletionId()),
+  )
+  const [hasHydrated, setHasHydrated] = useState(false)
   const [announcement, setAnnouncement] = useState("")
   const [isPending, startTransition] = useTransition()
-  const startedAtRef = useRef<string | null>(null)
+  const lastTitleRef = useRef<string | null>(null)
+  const originalTitleRef = useRef<string | null>(null)
+  const handledCompletionIdsRef = useRef(new Set<string>())
 
-  // One stable id per logical timer run, sent to the server so a repeated
-  // completion request (see below) can never insert twice for the same
-  // run. Regenerated only where a genuinely NEW run begins (reset, mode
-  // switch, or auto-advancing into the next mode after completion) — never
-  // on pause/resume, and never merely because the component re-rendered.
-  const sessionIdRef = useRef<string | null>(null)
-  if (sessionIdRef.current === null) {
-    sessionIdRef.current = crypto.randomUUID()
-  }
-
-  // Guards against handling the same zero-crossing more than once. React
-  // may invoke a state updater function more than once for a single
-  // logical update (Strict Mode does this deliberately in development to
-  // surface impure updaters) — completion side effects used to live inside
-  // exactly such an updater, which is what caused one finished session to
-  // log itself hundreds of times. Completion now only ever happens here, in
-  // a plain effect, gated by this ref.
-  const completionHandledRef = useRef(false)
-
-  const initialSeconds = mode === "focus" ? focusMinutes * 60 : breakMinutes * 60
+  const mode = snapshot.mode
+  const isRunning = snapshot.status === "running"
+  const secondsLeft = snapshot.remainingSeconds
+  const initialSeconds = snapshot.durationSeconds
+  const sessionsCompleted = snapshot.sessionsCompleted
 
   const progress = useMemo(() => {
     if (initialSeconds <= 0) {
@@ -60,48 +54,116 @@ export function PomodoroTimer({
     return Math.max(0, Math.min(100, ((initialSeconds - secondsLeft) / initialSeconds) * 100))
   }, [initialSeconds, secondsLeft])
 
-  // Ticking is now a PURE decrement — no side effects inside the updater.
-  // It only ever counts down to 0 and stops there; it never itself decides
-  // what a "zero" means (that's the completion effect's job below).
   useEffect(() => {
-    if (!isRunning) {
-      return
-    }
+    const stored = parsePomodoroSnapshot(window.localStorage.getItem(POMODORO_TIMER_STORAGE_KEY))
 
-    const interval = window.setInterval(() => {
-      setSecondsLeft((current) => (current > 0 ? current - 1 : 0))
-    }, 1000)
+    window.queueMicrotask(() => {
+      if (stored) {
+        setSnapshot(derivePomodoroSnapshot(stored))
+      } else {
+        window.localStorage.removeItem(POMODORO_TIMER_STORAGE_KEY)
+      }
 
-    return () => window.clearInterval(interval)
-  }, [isRunning])
+      setHasHydrated(true)
+    })
+  }, [])
 
-  /**
-   * Fires exactly once per zero-crossing. Whenever secondsLeft is above
-   * zero, the guard is kept armed (false) — that covers every "a new run's
-   * duration is now in effect" case (reset, mode switch, completion's own
-   * mode-advance, or the idle-preference-sync effect below) without those
-   * call sites needing to touch the ref themselves. Only when secondsLeft
-   * is exactly 0 AND the guard hasn't already fired do we run completion:
-   * stop the timer, log the session (focus only, matching Sprint 6), and
-   * advance into the next mode with a fresh id for the next run.
-   */
   useEffect(() => {
-    if (secondsLeft > 0) {
-      completionHandledRef.current = false
+    if (!hasHydrated) {
       return
     }
 
-    if (completionHandledRef.current) {
+    if (snapshot.status === "idle") {
+      window.localStorage.removeItem(POMODORO_TIMER_STORAGE_KEY)
+    } else {
+      window.localStorage.setItem(POMODORO_TIMER_STORAGE_KEY, JSON.stringify(snapshot))
+    }
+  }, [hasHydrated, snapshot])
+
+  useEffect(() => {
+    function syncFromStorage(event: StorageEvent) {
+      if (event.key !== POMODORO_TIMER_STORAGE_KEY) {
+        return
+      }
+
+      const stored = parsePomodoroSnapshot(event.newValue)
+      setSnapshot(
+        stored
+          ? derivePomodoroSnapshot(stored)
+          : createIdlePomodoroSnapshot("focus", focusMinutes * 60, createCompletionId()),
+      )
+    }
+
+    window.addEventListener("storage", syncFromStorage)
+
+    return () => window.removeEventListener("storage", syncFromStorage)
+  }, [focusMinutes])
+
+  useEffect(() => {
+    originalTitleRef.current = document.title
+
+    return () => {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const nextTitle = getPomodoroTitle(snapshot)
+
+    if (nextTitle === null) {
+      if (lastTitleRef.current !== null) {
+        document.title = originalTitleRef.current ?? "Akadex"
+        lastTitleRef.current = null
+      }
       return
     }
-    completionHandledRef.current = true
 
-    setIsRunning(false)
+    if (lastTitleRef.current !== nextTitle) {
+      document.title = nextTitle
+      lastTitleRef.current = nextTitle
+    }
+  }, [snapshot])
 
-    const completedSeconds = initialSeconds
-    const startedAt = startedAtRef.current ?? new Date(Date.now() - completedSeconds * 1000).toISOString()
-    const endedAt = new Date().toISOString()
-    const completionId = sessionIdRef.current as string
+  useEffect(() => {
+    function recalculate() {
+      setSnapshot((current) => derivePomodoroSnapshot(current))
+    }
+
+    recalculate()
+    const interval = window.setInterval(recalculate, 1000)
+    window.addEventListener("visibilitychange", recalculate)
+    window.addEventListener("focus", recalculate)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("visibilitychange", recalculate)
+      window.removeEventListener("focus", recalculate)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (
+      snapshot.status !== "completed" ||
+      snapshot.completionHandled ||
+      handledCompletionIdsRef.current.has(snapshot.completionId)
+    ) {
+      return
+    }
+
+    handledCompletionIdsRef.current.add(snapshot.completionId)
+
+    const completedSeconds = snapshot.durationSeconds
+    const completedAt = snapshot.completedAt ?? Date.now()
+    const startedAt = snapshot.startedAt ?? new Date(completedAt - completedSeconds * 1000).toISOString()
+    const endedAt = new Date(completedAt).toISOString()
+    const completionId = snapshot.completionId
+    const nextMode: PomodoroMode = mode === "focus" ? "break" : "focus"
+
+    window.queueMicrotask(() => {
+      setSnapshot((current) => ({ ...current, completionHandled: true }))
+    })
 
     if (mode === "focus") {
       const formData = new FormData()
@@ -113,28 +175,21 @@ export function PomodoroTimer({
 
       startTransition(async () => {
         await onCompleteSession(formData)
-        setSessionsCompleted((count) => count + 1)
+        setSnapshot((current) =>
+          advancePomodoroSnapshot(current, "break", breakMinutes * 60, createCompletionId(), current.sessionsCompleted + 1),
+        )
+      })
+    } else {
+      window.queueMicrotask(() => {
+        setSnapshot((current) => advancePomodoroSnapshot(current, "focus", focusMinutes * 60, createCompletionId()))
       })
     }
 
-    startedAtRef.current = null
-    const nextMode: Mode = mode === "focus" ? "break" : "focus"
-    sessionIdRef.current = crypto.randomUUID()
-    setMode(nextMode)
-    setSecondsLeft(nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
     setAnnouncement(
       `${mode === "focus" ? "Focus" : "Break"} session completed. ${nextMode === "focus" ? "Focus" : "Break"} started.`,
     )
-  }, [secondsLeft, mode, initialSeconds, focusMinutes, breakMinutes, onCompleteSession, startTransition])
+  }, [snapshot, mode, focusMinutes, breakMinutes, onCompleteSession, startTransition])
 
-  // Saved preferences (focusMinutes/breakMinutes) can change after mount —
-  // the Settings dialog updates them via a prop, not local state. While the
-  // timer is idle, the visible countdown should reflect the new duration
-  // right away. While it's running, we deliberately do nothing here: the
-  // active countdown keeps ticking from wherever it is, and the new value is
-  // simply what resetTimer()/toggleMode()/the next natural completion will
-  // use, since those all read the live focusMinutes/breakMinutes props
-  // directly rather than a stale copy.
   const previousDurationsRef = useRef({ focusMinutes, breakMinutes })
 
   useEffect(() => {
@@ -142,37 +197,46 @@ export function PomodoroTimer({
     const changed = previous.focusMinutes !== focusMinutes || previous.breakMinutes !== breakMinutes
     previousDurationsRef.current = { focusMinutes, breakMinutes }
 
-    if (changed && !isRunning) {
-      setSecondsLeft(mode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+    if (changed && snapshot.status === "idle") {
+      setSnapshot((current) =>
+        createIdlePomodoroSnapshot(
+          current.mode,
+          current.mode === "focus" ? focusMinutes * 60 : breakMinutes * 60,
+          current.completionId,
+          current.sessionsCompleted,
+        ),
+      )
     }
-  }, [focusMinutes, breakMinutes, isRunning, mode])
+  }, [focusMinutes, breakMinutes, snapshot.status])
 
   function resetTimer() {
-    setIsRunning(false)
-    startedAtRef.current = null
-    sessionIdRef.current = crypto.randomUUID()
-    setSecondsLeft(mode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+    setSnapshot((current) =>
+      createIdlePomodoroSnapshot(
+        current.mode,
+        current.mode === "focus" ? focusMinutes * 60 : breakMinutes * 60,
+        createCompletionId(),
+        current.sessionsCompleted,
+      ),
+    )
   }
 
-  function toggleMode(nextMode: Mode) {
-    setIsRunning(false)
-    startedAtRef.current = null
-    sessionIdRef.current = crypto.randomUUID()
-    setMode(nextMode)
-    setSecondsLeft(nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60)
+  function toggleMode(nextMode: PomodoroMode) {
+    setSnapshot((current) =>
+      createIdlePomodoroSnapshot(
+        nextMode,
+        nextMode === "focus" ? focusMinutes * 60 : breakMinutes * 60,
+        createCompletionId(),
+        current.sessionsCompleted,
+      ),
+    )
     setAnnouncement(`${nextMode === "focus" ? "Focus" : "Break"} started.`)
   }
 
   function toggleRunning() {
-    if (!isRunning && !startedAtRef.current) {
-      startedAtRef.current = new Date().toISOString()
-    }
-
-    setIsRunning((value) => !value)
+    setSnapshot((current) => (current.status === "running" ? pausePomodoroSnapshot(current) : startPomodoroSnapshot(current)))
   }
 
-  const minutes = Math.floor(secondsLeft / 60)
-  const seconds = secondsLeft % 60
+  const clock = formatPomodoroClock(secondsLeft)
   const ringColorVar = mode === "focus" ? "var(--terracotta)" : "var(--primary)"
 
   return (
@@ -212,9 +276,7 @@ export function PomodoroTimer({
               <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
                 {mode === "focus" ? "Focus time" : "Break time"}
               </p>
-              <p className="mt-2 text-5xl font-semibold tabular-nums sm:text-6xl">
-                {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-              </p>
+              <p className="mt-2 text-5xl font-semibold tabular-nums sm:text-6xl">{clock}</p>
             </div>
           </div>
         </div>
@@ -238,4 +300,8 @@ export function PomodoroTimer({
       </div>
     </div>
   )
+}
+
+function createCompletionId() {
+  return crypto.randomUUID()
 }
