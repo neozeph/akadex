@@ -5,7 +5,9 @@ import * as React from "react"
 import { type TaskRecord } from "@/components/tasks/task-card"
 import { PlannerColumn } from "@/components/tasks/planner-column"
 import { type TaskSubjectOption } from "@/components/tasks/task-form-fields"
+import { useDragToScroll } from "@/components/tasks/use-drag-to-scroll"
 import { formatColumnMonthDay } from "@/lib/dates"
+import { cn } from "@/lib/utils"
 
 type TaskBoardProps = {
   tasks: TaskRecord[]
@@ -90,6 +92,7 @@ export function TaskBoard({
 }: TaskBoardProps) {
   const columnNodes = React.useRef(new Map<string, HTMLElement>())
   const hasAutoScrolled = React.useRef(false)
+  const { ref: scrollContainerRef, isDragging, dragScrollProps } = useDragToScroll<HTMLDivElement>()
   const columns = React.useMemo(() => buildPlannerColumns(tasks, todayISO), [tasks, todayISO])
 
   React.useEffect(() => {
@@ -129,10 +132,16 @@ export function TaskBoard({
           own overflow-x-auto keeps a wider-than-viewport row of columns
           from ever widening the page itself. */}
       <div
+        ref={scrollContainerRef}
         role="region"
         aria-label="Task planner, scroll horizontally for more dates"
         tabIndex={0}
-        className="min-h-[calc(100vh-18rem)] overflow-x-auto pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-drag-scroll-active={isDragging ? "true" : undefined}
+        className={cn(
+          "task-timeline-scroll min-h-[calc(100vh-18rem)] overflow-x-auto pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          isDragging && "select-none",
+        )}
+        {...dragScrollProps}
       >
         <div className="flex min-w-max items-stretch gap-3">
           {columns.map((column) => (

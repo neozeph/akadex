@@ -165,6 +165,19 @@
   .shadow-soft {
     box-shadow: 0 18px 50px -30px rgba(15, 23, 42, 0.35);
   }
+
+  .task-timeline-scroll {
+    cursor: grab;
+    touch-action: pan-x pan-y;
+  }
+
+  .task-timeline-scroll[data-drag-scroll-active="true"] {
+    cursor: grabbing;
+  }
+
+  .task-timeline-scroll :is(a, button, input, textarea, select, label, summary, [role="button"], [role="checkbox"], [role="combobox"], [role="dialog"], [role="link"], [role="menu"], [role="menuitem"], [role="option"], [role="tooltip"], [contenteditable="true"], [data-no-drag-scroll]) {
+    cursor: revert;
+  }
 }
 
 /* Landing entrance-motion guardrails: content driven by <Reveal> must stay
