@@ -52,6 +52,7 @@ export function TaskCard({
   return (
     <>
       <article
+        data-no-drag-scroll
         className={cn(
           "group relative w-full max-w-full overflow-hidden rounded-lg border bg-card p-2.5 pr-8 shadow-sm transition-colors duration-200 hover:bg-accent/40 hover:shadow-md",
           isDone ? "opacity-60 border-border" : priorityStyle.border,
