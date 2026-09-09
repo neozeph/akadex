@@ -165,8 +165,15 @@ add column if not exists active boolean not null default true;
 -- predicate, which supabase-js's upsert(..., { onConflict }) cannot express.
 -- Postgres already treats NULL <> NULL in unique indexes, so ordinary
 -- non-recurring tasks (series_id is null) sharing a due_date never collide.
-create unique index if not exists tasks_series_due_date_unique
-  on public.tasks (series_id, due_date);
+-- Rolling recurring tasks keep exactly one active task row per series. Done
+-- rows are completion history and may share a due_date with the active row
+-- in a later cycle, so the safeguard applies only to unfinished rows.
+drop index if exists public.tasks_series_due_date_unique;
+
+create unique index if not exists tasks_one_active_recurring_task_per_series
+  on public.tasks (series_id)
+  where series_id is not null
+    and status <> 'done';
 
 -- Sprint 3.2: a subject belongs to exactly one semester. Cascade-delete
 -- subjects when their semester is removed instead of orphaning them via

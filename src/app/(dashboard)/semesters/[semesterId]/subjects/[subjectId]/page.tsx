@@ -21,6 +21,9 @@ import { throwPublicError } from "@/lib/server-errors"
 import { deleteSubject, updateSubject } from "@/app/(dashboard)/semesters/[semesterId]/actions"
 import { createTask, deleteTask, setTaskCompletion, updateTask } from "@/app/(dashboard)/tasks/actions"
 
+const firstOrNull = <T,>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
+
 async function getSubjectWorkspaceData(semesterId: string, subjectId: string) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
@@ -60,7 +63,7 @@ async function getSubjectWorkspaceData(semesterId: string, subjectId: string) {
       .order("subject_code", { ascending: true }),
     supabase
       .from("tasks")
-      .select("id, title, description, tags, due_date, priority, status, subject_id, series_id")
+      .select("id, title, description, tags, due_date, priority, status, subject_id, series_id, series:task_series(recurrence_type)")
       .eq("user_id", userId)
       .eq("subject_id", subjectId)
       .neq("status", "done"),
@@ -140,6 +143,7 @@ export default async function SubjectWorkspacePage({
       status: task.status,
       subject_id: task.subject_id,
       series_id: task.series_id,
+      recurrence_type: firstOrNull(task.series)?.recurrence_type ?? null,
       // Every task here already belongs to this subject — repeating
       // "CS101 · Programming Fundamentals" on each card would be redundant.
       subject: null,

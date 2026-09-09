@@ -1,12 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { Check, Trash2 } from "lucide-react"
+import { Check, Repeat2, Trash2 } from "lucide-react"
 
 import { EditTaskDialog } from "@/components/tasks/edit-task-dialog"
 import { DeleteConfirmDialog } from "@/components/academic/delete-confirm-dialog"
 import { type TaskSubjectOption } from "@/components/tasks/task-form-fields"
 import { getTaskPriorityStyles } from "@/lib/tasks"
+import { formatRecurrenceLabel, type TaskRecurrenceType } from "@/lib/recurrence"
 import { cn } from "@/lib/utils"
 
 export type TaskRecord = {
@@ -19,6 +20,7 @@ export type TaskRecord = {
   status: string
   subject_id: string | null
   series_id: string | null
+  recurrence_type?: TaskRecurrenceType | null
   subject: { subject_code: string; subject_name: string } | null
 }
 
@@ -48,6 +50,7 @@ export function TaskCard({
   const [editOpen, setEditOpen] = React.useState(false)
   const isDone = task.status === "done"
   const priorityStyle = getTaskPriorityStyles(task.priority)
+  const recurrenceLabel = task.recurrence_type ? formatRecurrenceLabel(task.recurrence_type) : null
 
   return (
     <>
@@ -62,6 +65,7 @@ export function TaskCard({
           <form action={onSetTaskCompletion} className="shrink-0">
             <input type="hidden" name="task_id" value={task.id} />
             <input type="hidden" name="completed" value={String(!isDone)} />
+            <input type="hidden" name="due_date_snapshot" value={task.due_date ?? ""} />
             <label className="relative mt-0.5 flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition before:absolute before:-inset-2.5 before:content-[''] hover:bg-accent hover:text-primary">
               <input
                 type="checkbox"
@@ -110,6 +114,17 @@ export function TaskCard({
                 {task.priority}
               </span>
             </div>
+
+            {recurrenceLabel ? (
+              <div
+                className="mt-1 inline-flex min-w-0 items-center gap-1 text-[0.68rem] font-medium text-muted-foreground"
+                title={recurrenceLabel}
+                aria-label={recurrenceLabel}
+              >
+                <Repeat2 className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="sr-only">{recurrenceLabel}</span>
+              </div>
+            ) : null}
 
             {task.description ? (
               <p className="mt-0.5 line-clamp-2 min-w-0 break-words text-xs leading-5 text-muted-foreground">{task.description}</p>
