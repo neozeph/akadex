@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { getOccurrenceDates } from "@/lib/recurrence"
+import { describe, expect, it, vi } from "vitest"
+import { getNextOccurrenceDate, getOccurrenceDates, synchronizeRecurringTaskOccurrences } from "@/lib/recurrence"
 
 describe("getOccurrenceDates", () => {
   it("returns every day in range for daily recurrence", () => {
@@ -56,5 +56,49 @@ describe("getOccurrenceDates", () => {
 
   it("returns an empty array when the range is entirely before the start date", () => {
     expect(getOccurrenceDates("daily", "2026-08-14", "2026-08-01", "2026-08-13")).toEqual([])
+  })
+})
+
+describe("getNextOccurrenceDate", () => {
+  it("moves a daily task completed on its due date to tomorrow", () => {
+    expect(getNextOccurrenceDate("daily", "2026-09-05", "2026-09-05")).toBe("2026-09-06")
+  })
+
+  it("moves a daily overdue task to tomorrow instead of a missed occurrence", () => {
+    expect(getNextOccurrenceDate("daily", "2026-09-02", "2026-09-05")).toBe("2026-09-06")
+  })
+
+  it("moves a weekly overdue task to the next matching weekday after today", () => {
+    expect(getNextOccurrenceDate("weekly", "2026-09-02", "2026-09-05")).toBe("2026-09-09")
+  })
+
+  it("moves a monthly overdue task to the next monthly occurrence after today", () => {
+    expect(getNextOccurrenceDate("monthly", "2026-09-02", "2026-09-05")).toBe("2026-10-02")
+  })
+
+  it("skips February for a non-leap-year Jan 31 monthly task", () => {
+    expect(getNextOccurrenceDate("monthly", "2026-01-31", "2026-01-31")).toBe("2026-03-31")
+  })
+
+  it("uses February 29 in leap years when the monthly anchor is the 29th", () => {
+    expect(getNextOccurrenceDate("monthly", "2028-01-29", "2028-01-29")).toBe("2028-02-29")
+  })
+
+  it("skips February in non-leap years when the monthly anchor is the 29th", () => {
+    expect(getNextOccurrenceDate("monthly", "2026-01-29", "2026-01-29")).toBe("2026-03-29")
+  })
+
+  it("does not shift dates through UTC parsing", () => {
+    expect(getNextOccurrenceDate("daily", "2026-03-08", "2026-03-08")).toBe("2026-03-09")
+  })
+})
+
+describe("synchronizeRecurringTaskOccurrences", () => {
+  it("does not recreate generated occurrences", async () => {
+    const from = vi.fn()
+
+    await synchronizeRecurringTaskOccurrences({ from } as never, "user-1")
+
+    expect(from).not.toHaveBeenCalled()
   })
 })

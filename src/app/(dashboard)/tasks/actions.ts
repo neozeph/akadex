@@ -7,7 +7,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { throwPublicError } from "@/lib/server-errors"
 import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, parseTaskTags } from "@/lib/tasks"
-import { RECURRENCE_OPTIONS, synchronizeRecurringTaskOccurrences, type RecurrenceOption } from "@/lib/recurrence"
+import {
+  RECURRENCE_OPTIONS,
+  getNextOccurrenceDate,
+  type RecurrenceOption,
+  type TaskRecurrenceType,
+} from "@/lib/recurrence"
+import { toISODate } from "@/lib/dates"
 
 async function getAuthedSupabase() {
   const cookieStore = await cookies()
@@ -69,6 +75,43 @@ async function getOwnedTaskStatus(
   }
 
   return data.status as string
+}
+
+type OwnedTaskCompletionState = {
+  status: string
+  due_date: string | null
+  series_id: string | null
+  series: {
+    recurrence_type: TaskRecurrenceType
+    start_date: string
+    active: boolean
+  } | null
+}
+
+async function getOwnedTaskCompletionState(
+  supabase: Awaited<ReturnType<typeof getAuthedSupabase>>,
+  taskId: string,
+  userId: string,
+) {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("status, due_date, series_id, series:task_series(recurrence_type, start_date, active)")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (error || !data) {
+    throw new Error("Task not found")
+  }
+
+  const series = Array.isArray(data.series) ? (data.series[0] ?? null) : (data.series ?? null)
+
+  return {
+    status: data.status,
+    due_date: data.due_date,
+    series_id: data.series_id,
+    series,
+  } as OwnedTaskCompletionState
 }
 
 /**
@@ -149,24 +192,39 @@ export async function createTask(formData: FormData) {
       throw new Error("Recurring tasks need a due date to use as their start date.")
     }
 
-    const { error: seriesError } = await supabase.from("task_series").insert({
+    const taskValues = {
       user_id: userId,
       subject_id: subjectId,
       title,
       description: description || null,
       tags: parseTaskTags(tagsValue),
       priority,
-      recurrence_type: repeat,
-      start_date: dueDateValue,
-    })
+    }
+
+    const { data: series, error: seriesError } = await supabase
+      .from("task_series")
+      .insert({
+        ...taskValues,
+        recurrence_type: repeat,
+        start_date: dueDateValue,
+      })
+      .select("id")
+      .single()
 
     if (seriesError) {
       throwPublicError("tasks.createSeries", seriesError, "Unable to create the recurring task. Please try again.")
     }
 
-    // Materialize occurrences immediately so the new series shows up on the
-    // planner without waiting for the next page load.
-    await synchronizeRecurringTaskOccurrences(supabase, userId)
+    const { error: taskError } = await supabase.from("tasks").insert({
+      ...taskValues,
+      series_id: series.id,
+      due_date: dueDateValue,
+      status: "todo",
+    })
+
+    if (taskError) {
+      throwPublicError("tasks.createRecurringTask", taskError, "Unable to create the recurring task. Please try again.")
+    }
 
     revalidatePath("/tasks")
     revalidatePath("/dashboard")
@@ -295,6 +353,46 @@ export async function setTaskCompletion(formData: FormData) {
   }
 
   await ensureTaskOwnership(supabase, taskId, userId)
+
+  const dueDateSnapshot = String(formData.get("due_date_snapshot") ?? "")
+  const task = await getOwnedTaskCompletionState(supabase, taskId, userId)
+
+  if (completed && task.series_id && task.series?.active) {
+    if (task.status === "done" || (dueDateSnapshot && task.due_date !== dueDateSnapshot)) {
+      revalidatePath("/tasks")
+      revalidatePath("/dashboard")
+      revalidatePath("/semesters/[semesterId]", "page")
+      revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+      revalidatePath("/analytics")
+      return
+    }
+
+    const today = toISODate(new Date())
+    const nextDueDate = getNextOccurrenceDate(task.series.recurrence_type, task.series.start_date, today)
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        status: "todo",
+        completed_at: null,
+        due_date: nextDueDate,
+      })
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .eq("status", task.status)
+      .eq("due_date", task.due_date)
+
+    if (error) {
+      throwPublicError("tasks.rollRecurringCompletion", error, "Unable to update the task status. Please try again.")
+    }
+
+    revalidatePath("/tasks")
+    revalidatePath("/dashboard")
+    revalidatePath("/semesters/[semesterId]", "page")
+    revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
+    revalidatePath("/analytics")
+    return
+  }
 
   // Every call here is an explicit user action to mark complete or
   // incomplete (the planner checkbox), never an unrelated-field edit — so

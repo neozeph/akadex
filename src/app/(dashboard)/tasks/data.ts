@@ -43,7 +43,7 @@ export async function getTaskPlannerData(searchParams: TasksSearchParams) {
     supabase
       .from("tasks")
       .select(
-        "id, title, description, tags, due_date, priority, status, subject_id, series_id, created_at, subject:subjects(subject_code, subject_name)",
+        "id, title, description, tags, due_date, priority, status, subject_id, series_id, created_at, subject:subjects(subject_code, subject_name), series:task_series(recurrence_type)",
       )
       .eq("user_id", userId)
       .order("due_date", { ascending: true, nullsFirst: false })
@@ -72,6 +72,7 @@ export async function getTaskPlannerData(searchParams: TasksSearchParams) {
   const allTasks = (tasksResult.data ?? []).map((task) => ({
     ...task,
     subject: firstOrNull(task.subject),
+    recurrence_type: firstOrNull(task.series)?.recurrence_type ?? null,
   }))
   const subjects = (subjectsResult.data ?? []).map((subject) => ({
     id: subject.id,
