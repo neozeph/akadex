@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { calculateGwa } from "@/lib/grades"
 import { measureOperation } from "@/lib/performance"
+import { throwPublicError } from "@/lib/server-errors"
 
 export type DashboardData = {
   overallGpa: number | null
@@ -79,6 +80,16 @@ async function loadDashboardData(userId: string): Promise<DashboardData> {
       .eq("user_id", userId)
       .gte("created_at", startOfToday()),
   ])
+
+  const failedQuery = [semestersCountResult, subjectsResult, pendingTasksCountResult, completedTasksCountResult, upcomingTasksResult, pomodoroResult].find((result) => result.error)
+  if (failedQuery?.error) {
+    throwPublicError("dashboard.load", failedQuery.error, "Unable to load your dashboard right now.")
+  }
+  const counts = [semestersCountResult.count, pendingTasksCountResult.count, completedTasksCountResult.count]
+  const rows = [subjectsResult.data, upcomingTasksResult.data, pomodoroResult.data]
+  if (counts.some((value) => typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) || rows.some((value) => !Array.isArray(value))) {
+    throwPublicError("dashboard.invalidResponse", new Error("Incomplete dashboard response"), "Unable to load your dashboard right now.")
+  }
 
   const subjects = subjectsResult.data ?? []
   const upcomingTasks = upcomingTasksResult.data ?? []

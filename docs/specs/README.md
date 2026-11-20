@@ -25,7 +25,7 @@ The supplied E2E guide is for Clio/Convex, while Akadex uses Supabase/Next.js. I
 | Spec | Slice | Dependency | Status |
 | --- | --- | --- | --- |
 | [01](01-verification-and-baseline.md) | Isolated verification and performance baseline | Plan approved, isolated environment running | Complete locally, see results and measured failures |
-| [02](02-dashboard-errors.md) | Honest dashboard errors and recovery | 01 | Specified |
+| [02](02-dashboard-errors.md) | Honest dashboard errors and recovery | 01 | Complete locally, [verification](results/02-dashboard-errors.md) |
 | [03](03-pomodoro-save-recovery.md) | Recover failed focus-session saves | 01 | Specified |
 | [04](04-user-timezone.md) | Consistent user calendar boundaries | 01 | Specified |
 | [05](05-recurring-completion-history.md) | Atomic recurrence and completion history | 01, 04, migration setup from 10 | Specified |

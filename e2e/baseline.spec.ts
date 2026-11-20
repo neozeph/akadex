@@ -1,10 +1,24 @@
 import { test, expect, type Page, type BrowserContext } from "@playwright/test"
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { randomUUID } from "node:crypto"
+import { execFileSync } from "node:child_process"
 import { E2E_APP_URL } from "./environment.ts"
 import { recordSample, summarizeSamples, type Sample } from "./measurements.ts"
 
 type Dataset = { prefix: string; semesterPath: string | null; tasks: string[] }
+
+function denyDashboardSubjects() {
+  // This fixed container belongs exclusively to the guarded local E2E project.
+  const execute = (sql: string) => execFileSync("docker", ["exec", "supabase_db_akadex-e2e", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
+  if (execute("SELECT has_table_privilege('authenticated', 'public.subjects', 'SELECT')").trim() !== "t") throw new Error("Unexpected existing subjects permissions. No grants changed.")
+  execute("REVOKE SELECT ON public.subjects FROM authenticated")
+  let outstanding = true
+  return () => {
+    if (!outstanding) return
+    execute("GRANT SELECT ON public.subjects TO authenticated")
+    outstanding = false
+  }
+}
 
 async function ready(page: Page, path: string, heading?: string) {
   const response = await page.goto(path)
@@ -183,6 +197,81 @@ test("story 3: completion survives reload and failed navigation is never readine
     await expiredPage.goto(`${E2E_APP_URL}/dashboard`)
     await expect(expiredPage).toHaveURL(`${E2E_APP_URL}/login`)
   } finally { await expired.close() }
+})
+
+test("spec02 S1: successful empty dashboard remains a real empty state", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  try {
+    const page = await accountPage(context)
+    await expect(page.getByRole("heading", { name: "Dashboard unavailable", exact: true })).toHaveCount(0)
+    await expect(page.getByRole("article").filter({ has: page.getByText("Overall GWA", { exact: true }) })).toContainText("No grades yet")
+    await expect(page.getByRole("article").filter({ has: page.getByText("Pending tasks", { exact: true }) }).locator("p").nth(1)).toHaveText("0")
+  } finally { await context.close() }
+})
+
+test("spec02 S2: partial database failure shows safe retryable error and keyboard focus", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  let restore: (() => void) | undefined
+  let release = () => {}
+  try {
+    const page = await accountPage(context)
+    restore = denyDashboardSubjects()
+    expect(() => denyDashboardSubjects()).toThrow("Unexpected existing subjects permissions")
+    await page.goto("/dashboard")
+    const heading = page.getByRole("heading", { name: "Dashboard unavailable", exact: true })
+    await expect(heading).toBeVisible()
+    await expect(heading).toBeFocused()
+    await expect(page.getByRole("article").filter({ has: page.getByText("Pending tasks", { exact: true }) })).toHaveCount(0)
+    await expect(page.getByText(/permission denied|42501/)).toHaveCount(0)
+    const retry = page.getByRole("button", { name: "Try again", exact: true })
+    const gate = new Promise<void>((done) => { release = done })
+    let arrived: () => void = () => {}
+    const serverResponse = new Promise<void>((done) => { arrived = done })
+    await page.route("**/dashboard?*", async (route) => {
+      if (route.request().headers()["rsc"] !== "1") { await route.continue(); return }
+      const response = await route.fetch()
+      arrived()
+      await gate
+      await route.fulfill({ response })
+    })
+    await retry.focus()
+    await retry.press("Enter")
+    await serverResponse
+    await expect(page.getByRole("button", { name: "Retrying...", exact: true })).toBeDisabled()
+    await expect(page.locator('section[aria-labelledby="dashboard-error-heading"]')).toHaveAttribute("aria-busy", "true")
+    release()
+    await expect(heading).toBeVisible()
+    await expect(retry).toBeEnabled()
+    await retry.focus()
+    await expect(retry).toBeFocused()
+  } finally { release(); try { restore?.() } finally { await context.close() } }
+})
+
+test("spec02 S3: retry refetches recovered grades and tasks without document reload", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  const page = await accountPage(context)
+  const data: Dataset = { prefix: `E2E-${randomUUID().slice(0, 8).toUpperCase()}`, semesterPath: null, tasks: [] }
+  let restore: (() => void) | undefined
+  try {
+    await seed(page, data)
+    restore = denyDashboardSubjects()
+    await page.goto("/dashboard")
+    await expect(page.getByRole("heading", { name: "Dashboard unavailable", exact: true })).toBeVisible()
+    await page.evaluate(() => { document.documentElement.dataset.e2eRetry = "same-document" })
+    restore()
+    const retry = page.getByRole("button", { name: "Try again", exact: true })
+    await retry.focus()
+    await retry.press("Enter")
+    await expect(page.getByRole("article").filter({ has: page.getByText("Overall GWA", { exact: true }) })).toContainText("1.75")
+    const tasks = page.getByRole("article").filter({ has: page.getByText("Pending tasks", { exact: true }) })
+    await expect(tasks.locator("p").nth(1)).toHaveText("6")
+    await expect(tasks).toContainText("2 completed")
+    await expect(page.getByRole("heading", { name: "Dashboard unavailable", exact: true })).toHaveCount(0)
+    await expect(page.locator("html")).toHaveAttribute("data-e2e-retry", "same-document")
+    await expect(page).toHaveURL(`${E2E_APP_URL}/dashboard`)
+  } finally {
+    try { restore?.() } finally { try { await cleanup(page, data) } finally { await context.close() } }
+  }
 })
 
 test("story 2: cold-browser and warm baseline against real academic data", async ({ browser }) => {
