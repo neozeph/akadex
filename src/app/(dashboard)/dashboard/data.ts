@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { calculateGwa } from "@/lib/grades"
+import { measureOperation } from "@/lib/performance"
 
 export type DashboardData = {
   overallGpa: number | null
@@ -27,7 +28,11 @@ function startOfToday() {
   return now.toISOString()
 }
 
-export async function getDashboardData(userId: string): Promise<DashboardData> {
+export function getDashboardData(userId: string): Promise<DashboardData> {
+  return measureOperation("dashboard", () => loadDashboardData(userId))
+}
+
+async function loadDashboardData(userId: string): Promise<DashboardData> {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {

@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { addDaysISO, addMonthsISO, formatColumnMonthDay, formatMonthYearLabel, parseISODate, toISODate } from "@/lib/dates"
 import { throwPublicError } from "@/lib/server-errors"
+import { measureOperation } from "@/lib/performance"
 
 export const ANALYTICS_RANGES = ["7d", "30d", "all"] as const
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number]
@@ -101,7 +102,11 @@ function buildTrend(
   return buildMonthlyBuckets(entries, earliestISO, todayISO)
 }
 
-export async function getActivityAnalyticsData(userId: string, range: AnalyticsRange) {
+export function getActivityAnalyticsData(userId: string, range: AnalyticsRange) {
+  return measureOperation("activity-analytics", () => loadActivityAnalyticsData(userId, range))
+}
+
+async function loadActivityAnalyticsData(userId: string, range: AnalyticsRange) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {

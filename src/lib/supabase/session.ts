@@ -2,6 +2,7 @@ import { cache } from "react"
 import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "./server"
+import { measureOperation } from "../performance"
 
 export async function getSupabaseClaims() {
   const cookieStore = await cookies()
@@ -24,7 +25,7 @@ export async function getSupabaseClaims() {
  * hitting Supabase Auth repeatedly; the cache is scoped to the request's
  * render and never persists across requests.
  */
-export const getAuthenticatedUser = cache(async () => {
+export const getAuthenticatedUser = cache(() => measureOperation("auth", async () => {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {
@@ -39,4 +40,4 @@ export const getAuthenticatedUser = cache(async () => {
   }
 
   return data.user
-})
+}))

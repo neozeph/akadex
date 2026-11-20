@@ -6,6 +6,7 @@ import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { formatSubjectOptionLabel } from "@/lib/subjects"
 import { synchronizeRecurringTaskOccurrences } from "@/lib/recurrence"
 import { throwPublicError } from "@/lib/server-errors"
+import { measureOperation } from "@/lib/performance"
 
 export type TasksSearchParams = {
   q?: string
@@ -21,7 +22,11 @@ export type TasksSearchParams = {
  * component below never triggers recurrence writes as a side effect of
  * rendering — it only ever reads what this function returns.
  */
-export async function getTaskPlannerData(searchParams: TasksSearchParams) {
+export function getTaskPlannerData(searchParams: TasksSearchParams) {
+  return measureOperation("planner", () => loadTaskPlannerData(searchParams))
+}
+
+async function loadTaskPlannerData(searchParams: TasksSearchParams) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {

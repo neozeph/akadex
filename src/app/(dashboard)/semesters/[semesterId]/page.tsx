@@ -11,10 +11,15 @@ import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { throwPublicError } from "@/lib/server-errors"
+import { measureOperation } from "@/lib/performance"
 
 import { createSubject, deleteSubject, updateSubject } from "./actions"
 
-async function getSemesterDetail(semesterId: string) {
+function getSemesterDetail(semesterId: string) {
+  return measureOperation("semester", () => loadSemesterDetail(semesterId))
+}
+
+async function loadSemesterDetail(semesterId: string) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {

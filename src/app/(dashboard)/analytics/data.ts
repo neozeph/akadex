@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { calculateGwa, getSubjectStatus, GRADE_OPTIONS } from "@/lib/grades"
 import { compareSemestersChronologically, formatSemesterLabel, formatSemesterShortLabel } from "@/lib/semesters"
 import { throwPublicError } from "@/lib/server-errors"
+import { measureOperation } from "@/lib/performance"
 
 export type GwaBySemesterPoint = {
   semesterId: string
@@ -18,7 +19,11 @@ export type GradeDistributionBar = {
   count: number
 }
 
-export async function getAnalyticsData(userId: string) {
+export function getAnalyticsData(userId: string) {
+  return measureOperation("academic-analytics", () => loadAnalyticsData(userId))
+}
+
+async function loadAnalyticsData(userId: string) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {
