@@ -19,6 +19,8 @@ export default defineConfig({
     command: "node e2e/run.ts serve",
     url: `${E2E_APP_URL}/login`,
     reuseExistingServer: false,
+    // Let run.ts stop its detached Next.js child before Playwright closes the pipes.
+    gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",

@@ -43,3 +43,9 @@ The first fresh-account CI run exposed an existing Pomodoro account-switch UI ga
 An intentionally aborted loopback login request, after successful registration, exercised the authentication-failure branch. The runner exited unsuccessfully as expected, emitted only sanitized stage diagnostics, deleted its generated account/state/manifest, and stopped its server. The original runner was restored immediately. See [failure cleanup summary](10-ci-failure-cleanup.json). The earlier failed regression run also reported successful cleanup in [its summary](10-ci-initial-regression.json). Cleanup was then rerun successfully to verify idempotence.
 
 Final cleanup confirmed zero generated CI accounts, fixture rows or scratch databases; manual auth-state hashes remained unchanged and private CI auth files were absent. Final unit verification passed all 172 tests.
+
+## Linux CI shutdown follow-up
+
+The supplied GitHub Actions log showed all 31 scenario checks followed by cancellation at the 25-minute job limit, without Playwright's final summary. A real Playwright/Linux process regression reproduced that hang: its HTTP check passed, but the detached server retained the output pipes after Playwright force-killed its wrapper.
+
+The web-server configuration now requests `SIGTERM` with a 10-second grace period, allowing `run.ts` to stop its owned Next.js child. `e2e/process-shutdown.test.ts` uses the actual configuration and process helper, with a disposable HTTP server and no authentication or database access. In a Node 24 Linux container, removing the option caused the test to time out after 15 seconds; restoring it passed in 1.8 seconds, printed the final summary, and left the server unreachable. The test runs in Ubuntu CI and skips Windows, whose process-tree termination differs. The hosted workflow still needs a new run after the owner commits/pushes this fix.
