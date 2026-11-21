@@ -39,7 +39,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -57,11 +57,61 @@ jobs:
       - name: Build
         run: npm run build
 
+  regressions:
+    name: Isolated workflow and isolation checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      # Owner approved generated disposable local CI accounts on 2026-11-21.
+      AKADEX_CI_DISPOSABLE_AUTH: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require approved disposable authentication
+        run: node --input-type=module -e "import { assertDisposableCIAuth } from './e2e/ci-auth.ts'; assertDisposableCIAuth()"
+      - name: Install dependencies and Chromium
+        id: dependencies
+        run: |
+          npm ci
+          npx --no-install playwright install --with-deps chromium
+      - name: Provision isolated database
+        id: database
+        run: npm run e2e:db
+      - name: Verify fresh and upgrade migrations
+        run: npm run e2e:verify-db
+      - name: Verify report aggregates
+        run: npm run e2e:verify-analytics
+      - name: Register disposable accounts, test login, and run workflows
+        run: npm run e2e:ci
+      - name: Clean disposable accounts and private states
+        if: always() && steps.database.outcome == 'success'
+        run: npm run e2e:ci:cleanup
+      - name: Retain sanitized summaries only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: isolated-regression-summary
+          path: |
+            e2e/.cache/ci-summary.json
+            e2e/.cache/isolation-summary.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Stop isolated local services
+        if: always() && steps.dependencies.outcome == 'success'
+        run: npx --no-install supabase stop
+
   open-promotion-pr:
     name: Open promotion PR
     runs-on: ubuntu-latest
-    needs: quality
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && needs.quality.result == 'success'
+    needs: [quality, regressions]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && needs.quality.result == 'success' && needs.regressions.result == 'success'
     permissions:
       contents: read
       pull-requests: write

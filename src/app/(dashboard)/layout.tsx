@@ -1,8 +1,10 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 
 import { DashboardNavbar } from "@/components/navigation/dashboard-navbar"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { TaskCacheProvider } from "@/components/tasks/task-cache-provider"
 
 export const metadata: Metadata = {
   robots: {
@@ -22,10 +24,11 @@ export default async function DashboardLayout({
     redirect("/login")
   }
 
+  const taskRevision=(await cookies()).get('akadex-task-revision')?.value??''
   return (
-    <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[256px_minmax(0,1fr)] lg:h-screen lg:overflow-hidden">
+    <TaskCacheProvider key={user.id} userId={user.id} taskRevision={taskRevision}><div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[256px_minmax(0,1fr)] lg:h-screen lg:overflow-hidden">
       <DashboardNavbar />
       <main className="min-h-0 overflow-y-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">{children}</main>
-    </div>
+    </div></TaskCacheProvider>
   )
 }

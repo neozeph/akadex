@@ -1,0 +1,7 @@
+{
+  "status": 401,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT SELECT ON public.subjects TO anon;\",\"message\":\"permission denied for table subjects\"}"
+}

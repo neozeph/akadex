@@ -1,0 +1,21 @@
+{
+  "taskDays": [
+    {
+      "value": 1104,
+      "dateISO": "2030-01-02"
+    }
+  ],
+  "activeNow": 1102,
+  "focusDays": [
+    {
+      "value": 66060,
+      "dateISO": "2030-01-02"
+    }
+  ],
+  "overdueNow": 1102,
+  "completedCount": 1104,
+  "totalTaskCount": 2209,
+  "focusTimeSeconds": 66060,
+  "completedSessionCount": 1101,
+  "legacyUndatedCompletionCount": 1
+}

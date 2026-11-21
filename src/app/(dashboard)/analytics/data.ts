@@ -1,9 +1,11 @@
+import { readAllPages } from "@/lib/read-all-pages"
 import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { calculateGwa, getSubjectStatus, GRADE_OPTIONS } from "@/lib/grades"
 import { compareSemestersChronologically, formatSemesterLabel, formatSemesterShortLabel } from "@/lib/semesters"
 import { throwPublicError } from "@/lib/server-errors"
+import { measureOperation } from "@/lib/performance"
 
 export type GwaBySemesterPoint = {
   semesterId: string
@@ -18,7 +20,11 @@ export type GradeDistributionBar = {
   count: number
 }
 
-export async function getAnalyticsData(userId: string) {
+export function getAnalyticsData(userId: string) {
+  return measureOperation("academic-analytics", () => loadAnalyticsData(userId))
+}
+
+async function loadAnalyticsData(userId: string) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {
@@ -26,19 +32,16 @@ export async function getAnalyticsData(userId: string) {
     },
   })
 
-  // Two queries total — every semester and every subject for this user —
-  // then everything below is aggregated in application code. No per-semester
-  // query, so this stays O(1) round trips regardless of how many semesters
-  // or subjects the account has.
+  // Bounded metadata pages preserve the established weighted calculations.
   const [semestersResult, subjectsResult] = await Promise.all([
-    supabase
+    readAllPages((from,to)=>supabase
       .from("semesters")
       .select("id, title, school_year, year_level, term, school_year_start, created_at")
-      .eq("user_id", userId),
-    supabase
+      .eq("user_id", userId).order("id").range(from,to)),
+    readAllPages((from,to)=>supabase
       .from("subjects")
       .select("id, subject_code, subject_name, units, grade, semester_id")
-      .eq("user_id", userId),
+      .eq("user_id", userId).order("id").range(from,to)),
   ])
 
   if (semestersResult.error) {

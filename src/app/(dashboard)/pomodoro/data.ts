@@ -3,12 +3,7 @@ import { cookies } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { DEFAULT_BREAK_MINUTES, DEFAULT_FOCUS_MINUTES } from "@/lib/pomodoro"
 import { throwPublicError } from "@/lib/server-errors"
-
-function startOfToday() {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  return now.toISOString()
-}
+import { DEFAULT_TIME_ZONE, getDayBoundsInTimeZone, isValidTimeZone, toDateInTimeZone } from "@/lib/dates"
 
 export async function getPomodoroPageData(userId: string) {
   const cookieStore = await cookies()
@@ -18,7 +13,14 @@ export async function getPomodoroPageData(userId: string) {
     },
   })
 
-  const [sessionsResult, todaySessionsResult, profileResult] = await Promise.all([
+  const profileResult = await supabase.from("profiles").select("focus_duration_minutes, break_duration_minutes, timezone").eq("id", userId).maybeSingle()
+  if (profileResult.error) {
+    throwPublicError("pomodoro.loadProfile", profileResult.error, "Unable to load Pomodoro data right now.")
+  }
+  const timeZone = profileResult.data?.timezone ?? DEFAULT_TIME_ZONE
+  if (!isValidTimeZone(timeZone)) throwPublicError("pomodoro.invalidTimezone", new Error("Invalid stored timezone"), "Unable to load Pomodoro data right now.")
+  const { start, end } = getDayBoundsInTimeZone(toDateInTimeZone(new Date(), timeZone), timeZone)
+  const [sessionsResult, todaySessionsResult] = await Promise.all([
     supabase
       .from("pomodoro_sessions")
       .select("id, duration, completed, started_at, ended_at, created_at")
@@ -29,8 +31,8 @@ export async function getPomodoroPageData(userId: string) {
       .from("pomodoro_sessions")
       .select("id, duration, completed, created_at")
       .eq("user_id", userId)
-      .gte("created_at", startOfToday()),
-    supabase.from("profiles").select("focus_duration_minutes, break_duration_minutes").maybeSingle(),
+      .gte("ended_at", start)
+      .lt("ended_at", end),
   ])
 
   if (sessionsResult.error) {
@@ -39,10 +41,6 @@ export async function getPomodoroPageData(userId: string) {
 
   if (todaySessionsResult.error) {
     throwPublicError("pomodoro.loadTodaySessions", todaySessionsResult.error, "Unable to load Pomodoro data right now.")
-  }
-
-  if (profileResult.error) {
-    throwPublicError("pomodoro.loadProfile", profileResult.error, "Unable to load Pomodoro data right now.")
   }
 
   const completedToday = (todaySessionsResult.data ?? []).filter((session) => session.completed)
@@ -63,5 +61,6 @@ export async function getPomodoroPageData(userId: string) {
     totalFocusMinutes,
     focusDurationMinutes,
     breakDurationMinutes,
+    timeZone,
   }
 }

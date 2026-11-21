@@ -12,7 +12,8 @@ import { formatGrade, getSubjectStatus, SUBJECT_STATUS_BADGE_CLASSES } from "@/l
 import { formatSemesterLabel } from "@/lib/semesters"
 import { formatSubjectOptionLabel } from "@/lib/subjects"
 import { compareTasksByUrgency, formatTaskDueDateLabel } from "@/lib/tasks"
-import { toISODate } from "@/lib/dates"
+import { toDateInTimeZone } from "@/lib/dates"
+import { getUserTimeZone } from "@/lib/user-timezone"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
@@ -111,6 +112,7 @@ async function getSubjectWorkspaceData(semesterId: string, subjectId: string) {
   }))
 
   return {
+    todayISO: toDateInTimeZone(new Date(), await getUserTimeZone(userId)),
     semester: semesterResult.data,
     subject,
     allSubjects,
@@ -124,11 +126,10 @@ export default async function SubjectWorkspacePage({
   params: Promise<{ semesterId: string; subjectId: string }>
 }) {
   const { semesterId, subjectId } = await params
-  const { semester, subject, allSubjects, tasks } = await getSubjectWorkspaceData(semesterId, subjectId)
+  const { semester, subject, allSubjects, tasks, todayISO } = await getSubjectWorkspaceData(semesterId, subjectId)
 
   const status = getSubjectStatus(subject.grade)
   const semesterLabel = formatSemesterLabel(semester)
-  const todayISO = toISODate(new Date())
 
   // Overdue, then today, then upcoming by date, then no due date last.
   const activeTasks: TaskRecord[] = [...tasks]

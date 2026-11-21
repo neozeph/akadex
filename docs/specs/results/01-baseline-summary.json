@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "capturedDate": "2026-11-20",
+  "environment": "local Docker Supabase and local Chromium",
+  "sameBuildVerified": true,
+  "build": "GzG--j6CS8R-5gKn5d8iS",
+  "observationsPerMode": 240,
+  "dataset": {
+    "semesters": 1,
+    "subjects": 2,
+    "tasks": 8,
+    "active": 6,
+    "done": 2,
+    "gradedUnits": 4,
+    "gwa": 1.75
+  },
+  "flows": [
+    {
+      "flow": "dashboard",
+      "temperature": "cold-browser",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 190.7472999999991,
+        "p95": 216.15480000000025
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 184.8809000000001,
+        "p95": 195.30289999999877
+      },
+      "medianMeasuredRequests": 7
+    },
+    {
+      "flow": "dashboard",
+      "temperature": "warm",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 163.91920000000027,
+        "p95": 197.83010000000286
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 151.10080000000016,
+        "p95": 176.40320000000065
+      },
+      "medianMeasuredRequests": 7
+    },
+    {
+      "flow": "task-filter",
+      "temperature": "cold-browser",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 187.002199999999,
+        "p95": 210.4936000000016
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 180.04249999999956,
+        "p95": 201.8621000000021
+      },
+      "medianMeasuredRequests": 3
+    },
+    {
+      "flow": "task-filter",
+      "temperature": "warm",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 139.58299999999872,
+        "p95": 161.03170000000682
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 147.4421000000002,
+        "p95": 168.05080000000453
+      },
+      "medianMeasuredRequests": 3
+    },
+    {
+      "flow": "task-completion",
+      "temperature": "cold-browser",
+      "instrumented": {
+        "total": 20,
+        "successful": 18,
+        "failed": 2,
+        "p50": 92.99890000000596,
+        "p95": 121.76959999999963
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 93.05010000000038,
+        "p95": 109.29119999999966
+      },
+      "medianMeasuredRequests": 7
+    },
+    {
+      "flow": "task-completion",
+      "temperature": "warm",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 92.46379999999772,
+        "p95": 116.5969000000041
+      },
+      "plain": {
+        "total": 20,
+        "successful": 19,
+        "failed": 1,
+        "p50": 92.32800000000861,
+        "p95": 115.01250000000437
+      },
+      "medianMeasuredRequests": 7
+    },
+    {
+      "flow": "semester",
+      "temperature": "cold-browser",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 188.81170000000566,
+        "p95": 215.2783999999956
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 178.71210000000428,
+        "p95": 200.48569999999017
+      },
+      "medianMeasuredRequests": 4
+    },
+    {
+      "flow": "semester",
+      "temperature": "warm",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 154.07540000000154,
+        "p95": 202.6317999999883
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 152.99529999999504,
+        "p95": 167.05650000000605
+      },
+      "medianMeasuredRequests": 4
+    },
+    {
+      "flow": "analytics-7d",
+      "temperature": "cold-browser",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 212.9265999999916,
+        "p95": 285.0203000000038
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 198.11840000000666,
+        "p95": 215.62850000000617
+      },
+      "medianMeasuredRequests": 5
+    },
+    {
+      "flow": "analytics-7d",
+      "temperature": "warm",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 195.51980000000913,
+        "p95": 240.45749999998952
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 194.7103000000061,
+        "p95": 215.87029999999504
+      },
+      "medianMeasuredRequests": 5
+    },
+    {
+      "flow": "analytics-30d",
+      "temperature": "cold-browser",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 209.0801999999967,
+        "p95": 224.5957000000053
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 211.17080000000715,
+        "p95": 256.2109000000055
+      },
+      "medianMeasuredRequests": 5
+    },
+    {
+      "flow": "analytics-30d",
+      "temperature": "warm",
+      "instrumented": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 196.08529999999155,
+        "p95": 219.69609999997192
+      },
+      "plain": {
+        "total": 20,
+        "successful": 20,
+        "failed": 0,
+        "p50": 196.61689999999362,
+        "p95": 220.25849999999627
+      },
+      "medianMeasuredRequests": 5
+    }
+  ],
+  "failureRecovery": {
+    "instrumented": [
+      {
+        "flow": "task-completion",
+        "temperature": "cold-browser",
+        "sample": 13,
+        "recovery": "task-done-at-recovery"
+      },
+      {
+        "flow": "task-completion",
+        "temperature": "cold-browser",
+        "sample": 16,
+        "recovery": "task-done-at-recovery"
+      }
+    ],
+    "plain": [
+      {
+        "flow": "task-completion",
+        "temperature": "warm",
+        "sample": 20,
+        "recovery": "task-active-at-recovery"
+      }
+    ]
+  },
+  "limits": [
+    "Not a production latency measurement",
+    "Full document navigations, not React client cache transitions",
+    "Playwright routing disables browser HTTP cache in both modes",
+    "Failed samples excluded from successful percentiles and counted separately",
+    "Sequential on/off runs are descriptive, not a controlled causal overhead estimate",
+    "Loader spans do not equal total server render time"
+  ]
+}

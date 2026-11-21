@@ -63,6 +63,10 @@ export function EditTaskDialog({ open, onOpenChange, task, subjects, onSave }: E
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
+    if (task.series_id && task.status !== "done" && formData.get("status") === "done") {
+      setError("Use the task checkbox to complete this occurrence and save its history.")
+      return
+    }
 
     setError(null)
     startTransition(async () => {
@@ -85,10 +89,11 @@ export function EditTaskDialog({ open, onOpenChange, task, subjects, onSave }: E
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="task_id" value={task.id} />
+          <input type="hidden" name="due_date_snapshot" value={task.due_date ?? ""} />
 
           {task.series_id ? (
             <p className="rounded-xl border border-border bg-muted px-4 py-3 text-xs text-muted-foreground">
-              Part of a recurring series — changes here only affect this occurrence.
+              Changes affect this occurrence. Use its checkbox to save completion history and move to the next due date. Past recurring completions cannot be undone here.
             </p>
           ) : null}
 

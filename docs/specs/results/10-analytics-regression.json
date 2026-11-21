@@ -1,0 +1,49 @@
+{
+  "taskRows": 2209,
+  "sessionRows": 1101,
+  "rawHistoryBytes": 369839,
+  "aggregateBytes": 294,
+  "plans": [
+    {
+      "kind": "raw-task-projection",
+      "executionMs": 2.293
+    },
+    {
+      "kind": "raw-task-projection",
+      "executionMs": 1.776
+    },
+    {
+      "kind": "raw-task-projection",
+      "executionMs": 1.695
+    },
+    {
+      "kind": "raw-task-projection",
+      "executionMs": 1.549
+    },
+    {
+      "kind": "raw-task-projection",
+      "executionMs": 1.667
+    },
+    {
+      "kind": "activity-aggregate",
+      "executionMs": 15.155
+    },
+    {
+      "kind": "activity-aggregate",
+      "executionMs": 13.739
+    },
+    {
+      "kind": "activity-aggregate",
+      "executionMs": 11.999
+    },
+    {
+      "kind": "activity-aggregate",
+      "executionMs": 13.111
+    },
+    {
+      "kind": "activity-aggregate",
+      "executionMs": 13.825
+    }
+  ],
+  "note": "Raw history bytes use complete projections, not the old truncated 1000-row API response. SQL timings exclude transport/browser work; raw task projection excludes focus/event reads. Five transaction-isolated samples each."
+}

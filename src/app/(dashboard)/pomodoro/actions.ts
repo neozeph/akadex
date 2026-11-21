@@ -74,9 +74,12 @@ export async function updatePomodoroPreferences(formData: FormData) {
   revalidatePath("/pomodoro")
 }
 
-export async function logPomodoroSession(formData: FormData) {
+export async function logPomodoroSession(expectedUserId: string, formData: FormData) {
   const supabase = await getAuthedSupabase()
   const userId = await getAuthedUserId()
+  if (userId !== expectedUserId) {
+    return { accountChanged: true as const }
+  }
 
   const durationValue = String(formData.get("duration") ?? "").trim()
   const completedValue = String(formData.get("completed") ?? "true") === "true"
@@ -120,4 +123,5 @@ export async function logPomodoroSession(formData: FormData) {
   revalidatePath("/pomodoro")
   revalidatePath("/dashboard")
   revalidatePath("/analytics")
+  return { accountChanged: false as const }
 }
