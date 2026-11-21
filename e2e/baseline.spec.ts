@@ -1,3 +1,4 @@
+import { authState } from "./ci-auth.ts"
 import { test, expect, type Page, type BrowserContext } from "@playwright/test"
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { randomUUID } from "node:crypto"
@@ -29,8 +30,8 @@ async function ready(page: Page, path: string, heading?: string) {
 }
 
 test.beforeAll(async () => {
-  for (const account of ["a", "b"]) {
-    try { await access(`e2e/.auth/${account}.json`) } catch { throw new Error("Manual local account setup is required. Run npm run e2e:setup.") }
+  for (const account of ["a", "b"] as const) {
+    try { await access(authState(account)) } catch { throw new Error("Local account state is missing. Run manual setup or the explicitly authorized CI setup.") }
   }
 })
 
@@ -153,8 +154,8 @@ async function cleanup(page: Page, data: Dataset) {
 }
 
 test("story 1: isolated real writes, hand-derived totals, and two-account separation", async ({ browser }) => {
-  const a = await browser.newContext({ storageState: "e2e/.auth/a.json" })
-  const b = await browser.newContext({ storageState: "e2e/.auth/b.json" })
+  const a = await browser.newContext({ storageState: authState('a') })
+  const b = await browser.newContext({ storageState: authState('b') })
   const page = await accountPage(a)
   await accountPage(b)
   const data: Dataset = { prefix: `E2E-${randomUUID().slice(0, 8).toUpperCase()}`, semesterPath: null, tasks: [] }
@@ -173,7 +174,7 @@ test("story 1: isolated real writes, hand-derived totals, and two-account separa
 })
 
 test("story 3: completion survives reload and failed navigation is never readiness", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  const context = await browser.newContext({ storageState: authState('a') })
   const page = await accountPage(context)
   const data: Dataset = { prefix: `E2E-${randomUUID().slice(0, 8).toUpperCase()}`, semesterPath: null, tasks: [] }
   try {
@@ -190,7 +191,7 @@ test("story 3: completion survives reload and failed navigation is never readine
     await context.setOffline(false)
     try { await cleanup(page, data) } finally { await context.close() }
   }
-  const expired = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  const expired = await browser.newContext({ storageState: authState('a') })
   await expired.clearCookies()
   try {
     const expiredPage = await expired.newPage()
@@ -200,7 +201,7 @@ test("story 3: completion survives reload and failed navigation is never readine
 })
 
 test("spec02 S1: successful empty dashboard remains a real empty state", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  const context = await browser.newContext({ storageState: authState('a') })
   try {
     const page = await accountPage(context)
     await expect(page.getByRole("heading", { name: "Dashboard unavailable", exact: true })).toHaveCount(0)
@@ -210,7 +211,7 @@ test("spec02 S1: successful empty dashboard remains a real empty state", async (
 })
 
 test("spec02 S2: partial database failure shows safe retryable error and keyboard focus", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  const context = await browser.newContext({ storageState: authState('a') })
   let restore: (() => void) | undefined
   let release = () => {}
   try {
@@ -248,7 +249,7 @@ test("spec02 S2: partial database failure shows safe retryable error and keyboar
 })
 
 test("spec02 S3: retry refetches recovered grades and tasks without document reload", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+  const context = await browser.newContext({ storageState: authState('a') })
   const page = await accountPage(context)
   const data: Dataset = { prefix: `E2E-${randomUUID().slice(0, 8).toUpperCase()}`, semesterPath: null, tasks: [] }
   let restore: (() => void) | undefined
@@ -276,8 +277,8 @@ test("spec02 S3: retry refetches recovered grades and tasks without document rel
 
 test("story 2: cold-browser and warm baseline against real academic data", async ({ browser }) => {
   test.setTimeout(600_000)
-  const context = await browser.newContext({ storageState: "e2e/.auth/a.json" })
-  const otherContext = await browser.newContext({ storageState: "e2e/.auth/b.json" })
+  const context = await browser.newContext({ storageState: authState('a') })
+  const otherContext = await browser.newContext({ storageState: authState('b') })
   await accountPage(otherContext)
   await otherContext.close()
   const page = await accountPage(context)
@@ -297,7 +298,7 @@ test("story 2: cold-browser and warm baseline against real academic data", async
         const samples: Sample[] = []
         let warm: BrowserContext | undefined
         if (temperature === "warm") {
-          warm = await browser.newContext({ storageState: "e2e/.auth/a.json" })
+          warm = await browser.newContext({ storageState: authState('a') })
           const warmPage = await warm.newPage()
           await ready(warmPage, path!, heading)
           if (flow === "task-completion") {
@@ -308,7 +309,7 @@ test("story 2: cold-browser and warm baseline against real academic data", async
         }
         try {
           for (let index = 0; index < 20; index++) {
-            const sampleContext = warm ?? await browser.newContext({ storageState: "e2e/.auth/a.json" })
+            const sampleContext = warm ?? await browser.newContext({ storageState: authState('a') })
             const samplePage = warm ? warm.pages()[0] : await sampleContext.newPage()
             const network: number[] = []
             const benchmark = `bench-${randomUUID().replaceAll("-", "")}`

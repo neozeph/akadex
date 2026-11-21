@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
+import { revalidateTaskViews } from "@/lib/mutation-cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
@@ -77,7 +78,7 @@ export async function createSemester(formData: FormData) {
   }
 
   revalidatePath("/semesters")
-  revalidatePath("/dashboard")
+  await revalidateTaskViews()
 }
 
 export async function updateSemester(formData: FormData) {
@@ -121,7 +122,7 @@ export async function updateSemester(formData: FormData) {
 
   revalidatePath("/semesters")
   revalidatePath(`/semesters/${semesterId}`)
-  revalidatePath("/dashboard")
+  await revalidateTaskViews()
 }
 
 export async function deleteSemester(formData: FormData) {
@@ -151,5 +152,5 @@ export async function deleteSemester(formData: FormData) {
   }
 
   revalidatePath("/semesters")
-  revalidatePath("/dashboard")
+  await revalidateTaskViews()
 }

@@ -3,6 +3,7 @@ import empty from "./fixtures/empty-response.json"
 import count from "./fixtures/empty-count.json"
 import failure from "./fixtures/service-failure.json"
 import { getDashboardData } from "./data"
+import { getPomodoroPageData } from "../pomodoro/data"
 
 vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [] }) }))
 
@@ -12,9 +13,10 @@ function useCapturedNetwork(failed?: Query, invalid?: { query: Query; kind: "mis
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input))
     const head = init?.method === "HEAD"
+    if (url.pathname.endsWith("/profiles")) return new Response('{"timezone":"Asia/Manila"}', { headers: { "content-type": "application/json" } })
     const query: Query = url.pathname.endsWith("/semesters") ? "semesters"
       : url.pathname.endsWith("/subjects") ? "subjects"
-      : url.pathname.endsWith("/pomodoro_sessions") ? "focus"
+      : (url.pathname.endsWith("/pomodoro_sessions") || url.pathname.endsWith("/focus_summary")) ? "focus"
       : !head ? "upcoming" : url.searchParams.get("status") === "eq.done" ? "completed" : "pending"
     const captured = query === failed ? failure : head ? count : empty
     if (query === invalid?.query) {
@@ -23,7 +25,7 @@ function useCapturedNetwork(failed?: Query, invalid?: { query: Query; kind: "mis
         headers: { "content-type": "application/json" },
       })
     }
-    return new Response(head ? null : captured.body, { status: captured.status, headers: captured.headers })
+    return new Response(head ? null : query === "focus" && url.pathname.endsWith("/focus_summary") && query !== failed ? JSON.stringify({count:0,seconds:0}) : captured.body, { status: captured.status, headers: captured.headers })
   })
 }
 
@@ -36,6 +38,31 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks() })
 
 describe("dashboard query outcomes through the real Supabase client", () => {
+  it.each([["dashboard", getDashboardData], ["pomodoro", getPomodoroPageData]] as const)("%s queries the user's completion day with one profile read", async (_name, load) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-11-19T16:00:00Z"))
+    try {
+      useCapturedNetwork()
+      const original = globalThis.fetch
+      let focus: URL | undefined
+      let focusBody: Record<string,string> | undefined
+      let profileReads = 0
+      vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(input instanceof Request ? input.url : String(input))
+        if (url.pathname.endsWith("/pomodoro_sessions")) focus = url
+        if (url.pathname.endsWith("/focus_summary")) {focus=url;focusBody=JSON.parse(String(init?.body))}
+        if (url.pathname.endsWith("/profiles")) profileReads++
+        return original(input, init)
+      })
+      await load("00000000-0000-4000-8000-000000000001")
+      if (_name === "dashboard") {
+        expect(focus?.pathname).toBe("/rest/v1/rpc/focus_summary")
+        expect(focusBody).toEqual({p_start:"2026-11-19T16:00:00.000Z",p_end:"2026-11-20T16:00:00.000Z"})
+      } else expect(focus?.searchParams.getAll("ended_at")).toEqual(["gte.2026-11-19T16:00:00.000Z", "lt.2026-11-20T16:00:00.000Z"])
+      expect(focus?.searchParams.has("created_at")).toBe(false)
+      expect(profileReads).toBe(1)
+    } finally { vi.useRealTimers() }
+  })
   it("rejects an empty HEAD 404 even when the SDK normalizes it to error-free 204", async () => {
     useCapturedNetwork(undefined, { query: "semesters", kind: "missing-endpoint" })
     await expect(getDashboardData("00000000-0000-4000-8000-000000000001")).rejects.toThrow("Unable to load your dashboard right now.")

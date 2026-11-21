@@ -1,0 +1,29 @@
+{
+  "postgres": "17.12",
+  "constraints": [
+    {
+      "name": "subjects_owned_semester_fk",
+      "definition": "FOREIGN KEY (user_id, semester_id) REFERENCES semesters(user_id, id) ON DELETE CASCADE",
+      "validated": true
+    },
+    {
+      "name": "task_series_owned_subject_fk",
+      "definition": "FOREIGN KEY (user_id, subject_id) REFERENCES subjects(user_id, id) ON DELETE SET NULL (subject_id)",
+      "validated": true
+    },
+    {
+      "name": "tasks_owned_subject_fk",
+      "definition": "FOREIGN KEY (user_id, subject_id) REFERENCES subjects(user_id, id) ON DELETE SET NULL (subject_id)",
+      "validated": true
+    }
+  ],
+  "migrations": [
+    "20261120000000",
+    "20261121000000",
+    "20261121010000",
+    "20261121020000",
+    "20261121040000",
+    "20261121050000",
+    "20261121060000"
+  ]
+}

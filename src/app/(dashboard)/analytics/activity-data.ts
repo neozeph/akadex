@@ -1,7 +1,8 @@
 import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { addDaysISO, addMonthsISO, formatColumnMonthDay, formatMonthYearLabel, parseISODate, toISODate } from "@/lib/dates"
+import { addDaysISO, addMonthsISO, formatColumnMonthDay, formatMonthYearLabel, toDateInTimeZone } from "@/lib/dates"
+import { getUserTimeZone } from "@/lib/user-timezone"
 import { throwPublicError } from "@/lib/server-errors"
 import { measureOperation } from "@/lib/performance"
 
@@ -21,18 +22,6 @@ export type TrendBucket = {
   key: string
   label: string
   value: number
-}
-
-/** Midnight (server-local time) for a given YYYY-MM-DD, as a timestamptz-comparable ISO string. Same technique pomodoro/data.ts's startOfToday() already uses. */
-function startOfDayTimestamp(iso: string) {
-  const date = parseISODate(iso)
-  date.setHours(0, 0, 0, 0)
-  return date.toISOString()
-}
-
-/** A timestamptz value's calendar day, in the same server-local frame `toISODate(new Date())` uses elsewhere — so "today" and "which day did this happen on" are always computed the same way. */
-function timestampToISODate(timestamp: string) {
-  return toISODate(new Date(timestamp))
 }
 
 export function buildDailyBuckets(entries: { dateISO: string; value: number }[], startISO: string, endISO: string): TrendBucket[] {
@@ -106,98 +95,32 @@ export function getActivityAnalyticsData(userId: string, range: AnalyticsRange) 
   return measureOperation("activity-analytics", () => loadActivityAnalyticsData(userId, range))
 }
 
-async function loadActivityAnalyticsData(userId: string, range: AnalyticsRange) {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll() {
-      return cookieStore.getAll()
-    },
-  })
+type ActivityReport = {
+  totalTaskCount:number; activeNow:number; overdueNow:number;
+  completedCount:number; legacyUndatedCompletionCount:number;
+  completedSessionCount:number; focusTimeSeconds:number;
+  taskDays:{dateISO:string;value:number}[]; focusDays:{dateISO:string;value:number}[];
+}
 
-  const todayISO = toISODate(new Date())
-
-  // One tasks query, one pomodoro_sessions query — unfiltered by date range
-  // at the SQL level on purpose: "Active now"/"Overdue now" need current
-  // state regardless of the selected range, so everything is fetched once
-  // and both current-state and range-scoped figures are derived from the
-  // same in-memory data, rather than risking two queries drifting apart.
-  const [tasksResult, sessionsResult] = await Promise.all([
-    supabase.from("tasks").select("id, status, due_date, completed_at").eq("user_id", userId),
-    supabase
-      .from("pomodoro_sessions")
-      .select("id, duration, ended_at")
-      .eq("user_id", userId)
-      .eq("completed", true),
-  ])
-
-  if (tasksResult.error) {
-    throwPublicError("analytics.loadTaskActivity", tasksResult.error, "Unable to load your analytics right now.")
+async function loadActivityAnalyticsData(userId:string,range:AnalyticsRange){
+  const cookieStore=await cookies()
+  const supabase=createSupabaseServerClient({getAll:()=>cookieStore.getAll()})
+  const timeZone=await getUserTimeZone(userId)
+  const todayISO=toDateInTimeZone(new Date(),timeZone)
+  const {data,error}=await supabase.rpc("activity_report",{p_today:todayISO,p_timezone:timeZone,p_range:range})
+  const counts=["totalTaskCount","activeNow","overdueNow","completedCount","legacyUndatedCompletionCount","completedSessionCount","focusTimeSeconds"]
+  if(error || !data || typeof data!=="object" || !Array.isArray(data.taskDays) || !Array.isArray(data.focusDays) || counts.some(key=>!Number.isSafeInteger(data[key]) || data[key]<0)){
+    throwPublicError("analytics.loadActivityReport",error??new Error("Missing aggregate"),"Unable to load your analytics right now.")
   }
-
-  if (sessionsResult.error) {
-    throwPublicError("analytics.loadFocusActivity", sessionsResult.error, "Unable to load your analytics right now.")
-  }
-
-  const tasks = tasksResult.data ?? []
-  const sessions = sessionsResult.data ?? []
-
-  // --- Current-state task metrics (never affected by the timeframe) ---
-  const activeNow = tasks.filter((task) => task.status !== "done").length
-  const overdueNow = tasks.filter(
-    (task) => task.status !== "done" && task.due_date !== null && task.due_date < todayISO,
-  ).length
-
-  // --- Range boundary ---
-  const rangeStartISO = range === "all" ? null : addDaysISO(todayISO, range === "7d" ? -6 : -29)
-  const rangeStartTimestamp = rangeStartISO ? startOfDayTimestamp(rangeStartISO) : null
-
-  // --- Task completions ---
-  const timestampedCompletions = tasks.filter(
-    (task): task is typeof task & { completed_at: string } => task.status === "done" && task.completed_at !== null,
-  )
-  const legacyUndatedCompletionCount = tasks.filter(
-    (task) => task.status === "done" && task.completed_at === null,
-  ).length
-
-  const completionsInRange = rangeStartTimestamp
-    ? timestampedCompletions.filter((task) => task.completed_at >= rangeStartTimestamp)
-    : timestampedCompletions
-
-  const taskTrend = buildTrend(
-    completionsInRange.map((task) => ({ dateISO: timestampToISODate(task.completed_at), value: 1 })),
-    range,
-    rangeStartISO,
-    todayISO,
-  )
-
-  // --- Focus sessions ---
-  const sessionsInRange = rangeStartTimestamp
-    ? sessions.filter((session) => session.ended_at >= rangeStartTimestamp)
-    : sessions
-
-  const focusTimeSeconds = sessionsInRange.reduce((sum, session) => sum + Number(session.duration), 0)
-  const completedSessionCount = sessionsInRange.length
-  const averageSessionSeconds = completedSessionCount > 0 ? focusTimeSeconds / completedSessionCount : 0
-
-  const focusTrend = buildTrend(
-    sessionsInRange.map((session) => ({ dateISO: timestampToISODate(session.ended_at), value: Number(session.duration) })),
-    range,
-    rangeStartISO,
-    todayISO,
-  ).map((bucket) => ({ ...bucket, value: Math.round(bucket.value / 60) })) // seconds -> minutes, once per bucket
-
+  const report=data as ActivityReport
+  const rangeStartISO=range==="all"?null:addDaysISO(todayISO,range==="7d"?-6:-29)
   return {
-    range,
-    totalTaskCount: tasks.length,
-    activeNow,
-    overdueNow,
-    completedCount: completionsInRange.length,
-    hasLegacyUndatedCompletions: legacyUndatedCompletionCount > 0,
-    legacyUndatedCompletionCount,
-    taskTrend,
-    focusTimeSeconds,
-    completedSessionCount,
-    averageSessionSeconds,
-    focusTrend,
+    range,totalTaskCount:report.totalTaskCount,activeNow:report.activeNow,overdueNow:report.overdueNow,
+    completedCount:report.completedCount,legacyUndatedCompletionCount:report.legacyUndatedCompletionCount,
+    hasLegacyUndatedCompletions:report.legacyUndatedCompletionCount>0,
+    taskTrend:buildTrend(report.taskDays,range,rangeStartISO,todayISO),
+    focusTimeSeconds:report.focusTimeSeconds,completedSessionCount:report.completedSessionCount,
+    averageSessionSeconds:report.completedSessionCount?report.focusTimeSeconds/report.completedSessionCount:0,
+    focusTrend:buildTrend(report.focusDays,range,rangeStartISO,todayISO).map(bucket=>({...bucket,value:Math.round(bucket.value/60)})),
   }
 }

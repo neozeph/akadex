@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
+import { useTaskAccount } from "@/components/tasks/task-cache-provider"
 
 type SignOutButtonProps = {
   className?: string
@@ -13,8 +14,10 @@ type SignOutButtonProps = {
 
 export function SignOutButton({ className, size = "sm", variant = "outline" }: SignOutButtonProps) {
   const router = useRouter()
+  const account = useTaskAccount()
 
   async function handleSignOut() {
+    account.clear()
     const supabase = createSupabaseBrowserClient()
     await supabase.auth.signOut()
     router.push("/login")

@@ -13,6 +13,7 @@ type TaskBoardProps = {
   tasks: TaskRecord[]
   hasActiveFilters: boolean
   todayISO: string
+  pendingTaskIds?: string[]
   subjects: TaskSubjectOption[]
   onCreateTask: (formData: FormData) => Promise<void>
   onDeleteTask: (formData: FormData) => Promise<void>
@@ -84,6 +85,7 @@ export function TaskBoard({
   tasks,
   hasActiveFilters,
   todayISO,
+  pendingTaskIds = [],
   subjects,
   onCreateTask,
   onDeleteTask,
@@ -160,6 +162,7 @@ export function TaskBoard({
               isToday={column.dateISO === todayISO}
               isOverdue={Boolean(column.isOverdueColumn)}
               tasks={column.tasks}
+              pendingTaskIds={pendingTaskIds}
               subjects={subjects}
               onCreateTask={onCreateTask}
               getTaskDueDateLabel={

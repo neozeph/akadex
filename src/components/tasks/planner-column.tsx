@@ -15,6 +15,7 @@ type PlannerColumnProps = {
   isToday: boolean
   isOverdue: boolean
   tasks: TaskRecord[]
+  pendingTaskIds?: string[]
   subjects: TaskSubjectOption[]
   getTaskDueDateLabel?: (task: TaskRecord) => string | null
   onCreateTask: (formData: FormData) => Promise<void>
@@ -45,6 +46,7 @@ export function PlannerColumn({
   isToday,
   isOverdue,
   tasks,
+  pendingTaskIds = [],
   subjects,
   getTaskDueDateLabel,
   onCreateTask,
@@ -115,6 +117,7 @@ export function PlannerColumn({
           tasks.map((task) => (
             <TaskCard
               key={task.id}
+              isPending={pendingTaskIds.includes(task.id)}
               task={task}
               subjects={subjects}
               onUpdateTask={onUpdateTask}

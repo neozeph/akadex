@@ -6,7 +6,7 @@ Created: 2026-11-20. Scope: the codebase review and the user's request to implem
 
 - Follow root `AGENTS.md` and the explicitly invoked `skills/AGENTS.md`, `skills/feature-workflow.md`, and `skills/e2e-testing.md`.
 - Read relevant installed Next.js guides before application changes. Start with `node_modules/next/dist/docs/01-app/01-getting-started/06-fetching-data.md`, `07-mutating-data.md`, and `08-caching.md` for data work.
-- One numbered story below maps to one committed, rerunnable E2E scenario. Supporting unit and integration checks do not replace the scenario.
+- One numbered story below maps to one rerunnable E2E scenario. Supporting unit and integration checks do not replace the scenario. Leave changes unstaged and uncommitted for the owner.
 - Before implementation, write a slice plan naming actual files, apply the required Ponytail cut gate, then follow red/green TDD. Confirm new tests detect the original defect or a deliberately introduced mutation. Restore mutations before proceeding.
 - Use captured, sanitized real service payloads where fixtures are needed. Never commit credentials, cookies, tokens, personal account data, or copied production data. Derive expected values independently.
 - Run complexity and correctness reviews. Run security review for auth, inputs, SQL, dependencies, network handlers, storage, or other trust boundaries.
@@ -26,14 +26,14 @@ The supplied E2E guide is for Clio/Convex, while Akadex uses Supabase/Next.js. I
 | --- | --- | --- | --- |
 | [01](01-verification-and-baseline.md) | Isolated verification and performance baseline | Plan approved, isolated environment running | Complete locally, see results and measured failures |
 | [02](02-dashboard-errors.md) | Honest dashboard errors and recovery | 01 | Complete locally, [verification](results/02-dashboard-errors.md) |
-| [03](03-pomodoro-save-recovery.md) | Recover failed focus-session saves | 01 | Specified |
-| [04](04-user-timezone.md) | Consistent user calendar boundaries | 01 | Specified |
-| [05](05-recurring-completion-history.md) | Atomic recurrence and completion history | 01, 04, migration setup from 10 | Specified |
-| [06](06-bounded-task-queries.md) | SQL task filters and pagination | 01 | Specified |
-| [07](07-task-query-cache.md) | React Query and optimistic task updates | 02, 06 | Specified |
-| [08](08-reporting-performance.md) | Bounded analytics, aggregates, streaming | 04, 05, migration setup from 10 | Specified |
-| [09](09-cross-view-consistency.md) | Mutation and cache dependencies | 07, 08 | Specified |
-| [10](10-release-confidence.md) | Migrations, isolation, regression gates | 01; migration setup before 05/08 | Specified |
+| [03](03-pomodoro-save-recovery.md) | Recover failed focus-session saves | 01 | Implemented and verified locally; independent review partial, [results](results/03-pomodoro-save-recovery.md) |
+| [04](04-user-timezone.md) | Consistent user calendar boundaries | 01 | Complete locally, [verification](results/04-user-timezone.md); migration applied locally only |
+| [05](05-recurring-completion-history.md) | Atomic recurrence and completion history | 01, 04, migration setup from 10 | Complete locally, [verification](results/05-recurring-completion-history.md) |
+| [06](06-bounded-task-queries.md) | SQL task filters and pagination | 01 | Complete locally, [verification](results/06-bounded-task-queries.md) |
+| [07](07-task-query-cache.md) | React Query and optimistic task updates | 02, 06 | Complete locally; [results](results/07-task-query-cache.md) |
+| [08](08-reporting-performance.md) | Bounded analytics, aggregates, streaming | 04, 05, migration setup from 10 | Complete locally; [results](results/08-bounded-analytics.md) |
+| [09](09-cross-view-consistency.md) | Mutation and cache dependencies | 07, 08 | Complete locally; [results](results/09-cross-view-consistency.md) |
+| [10](10-release-confidence.md) | Migrations, isolation, regression gates | 01; migration setup before 05/08 | Complete locally; approved CI login/regressions verified; [results](results/10-release-confidence.md) |
 | [11](11-guided-setup.md) | Guided semester/subject/task setup | 09 | Proposed product increment |
 | [12](12-today-view.md) | Daily planning view | 04, 07, 09 | Proposed product increment |
 | [13](13-task-linked-focus.md) | Start focus from a task | 03, 09 | Proposed product increment |

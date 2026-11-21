@@ -26,6 +26,7 @@ export type TaskRecord = {
 
 type TaskCardProps = {
   task: TaskRecord
+  isPending?: boolean
   subjects: TaskSubjectOption[]
   onUpdateTask: (formData: FormData) => Promise<void>
   onDeleteTask: (formData: FormData) => Promise<void>
@@ -41,6 +42,7 @@ type TaskCardProps = {
 
 export function TaskCard({
   task,
+  isPending = false,
   subjects,
   onUpdateTask,
   onDeleteTask,
@@ -61,7 +63,7 @@ export function TaskCard({
           isDone ? "opacity-60 border-border" : priorityStyle.border,
         )}
       >
-        <div className="flex min-w-0 items-start gap-1.5">
+        <fieldset disabled={isPending} className="contents"><div className="flex min-w-0 items-start gap-1.5">
           <form action={onSetTaskCompletion} className="shrink-0">
             <input type="hidden" name="task_id" value={task.id} />
             <input type="hidden" name="completed" value={String(!isDone)} />
@@ -69,7 +71,8 @@ export function TaskCard({
             <label className="relative mt-0.5 flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition before:absolute before:-inset-2.5 before:content-[''] hover:bg-accent hover:text-primary">
               <input
                 type="checkbox"
-                defaultChecked={isDone}
+                checked={isPending ? !isDone : isDone}
+                aria-busy={isPending}
                 aria-label={`Mark ${task.title} as ${isDone ? "incomplete" : "complete"}`}
                 className="peer sr-only"
                 onChange={(event) => {
@@ -172,6 +175,7 @@ export function TaskCard({
             />
           </div>
         </div>
+        </fieldset>
       </article>
 
       <EditTaskDialog

@@ -1,3 +1,4 @@
+import { DisplayNameForm } from "@/components/settings/display-name-form"
 import { redirect } from "next/navigation"
 import { UserCircle2, Mail, Palette, Sparkles } from "lucide-react"
 
@@ -7,7 +8,9 @@ import { SignOutButton } from "@/components/auth/sign-out-button"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 
-import { updateDisplayName } from "./actions"
+import { updateDisplayName, updateTimeZone } from "./actions"
+import { TimezoneForm } from "@/components/settings/timezone-form"
+import { DEFAULT_TIME_ZONE } from "@/lib/dates"
 import { getSettingsPageData } from "./data"
 
 export default async function SettingsPage() {
@@ -28,6 +31,7 @@ export default async function SettingsPage() {
       />
 
       <section className="grid gap-6 lg:grid-cols-2">
+        <TimezoneForm timeZone={profile?.timezone ?? DEFAULT_TIME_ZONE} onSave={updateTimeZone} />
         <div className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border p-3">
@@ -68,6 +72,7 @@ export default async function SettingsPage() {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
+                      timeZone: profile?.timezone ?? DEFAULT_TIME_ZONE,
                     }).format(new Date(profile.created_at))
                   : "Unavailable"}
               </p>
@@ -75,7 +80,7 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        <form action={updateDisplayName} className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
+        <DisplayNameForm onSave={updateDisplayName.bind(null,user.id)}>
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border p-3">
               <Sparkles className="size-5" />
@@ -107,7 +112,7 @@ export default async function SettingsPage() {
           <Button type="submit" className="w-full sm:w-auto">
             Save display name
           </Button>
-        </form>
+        </DisplayNameForm>
 
         <div className="space-y-4 rounded-[2rem] border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-3">

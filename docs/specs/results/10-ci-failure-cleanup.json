@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "passed": false,
+  "stage": "login",
+  "authenticatedAccounts": 0,
+  "cleanup": true,
+  "injectedFailure": "loopback login token request aborted after registration"
+}

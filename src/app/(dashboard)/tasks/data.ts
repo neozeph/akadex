@@ -7,13 +7,12 @@ import { formatSubjectOptionLabel } from "@/lib/subjects"
 import { synchronizeRecurringTaskOccurrences } from "@/lib/recurrence"
 import { throwPublicError } from "@/lib/server-errors"
 import { measureOperation } from "@/lib/performance"
+import { getUserTimeZone } from "@/lib/user-timezone"
+import { toDateInTimeZone } from "@/lib/dates"
+import { parseTaskQuery, type TasksSearchParams } from "@/lib/task-query"
+import { queryTaskPage } from "@/lib/task-query-server"
 
-export type TasksSearchParams = {
-  q?: string
-  status?: string
-  subject?: string
-  priority?: string
-}
+export type { TasksSearchParams } from "@/lib/task-query"
 
 /**
  * Explicit recurrence synchronization boundary + planner read, in that
@@ -22,11 +21,12 @@ export type TasksSearchParams = {
  * component below never triggers recurrence writes as a side effect of
  * rendering — it only ever reads what this function returns.
  */
-export function getTaskPlannerData(searchParams: TasksSearchParams) {
-  return measureOperation("planner", () => loadTaskPlannerData(searchParams))
+export function getTaskPlannerData(searchParams: TasksSearchParams, includeTasks = true) {
+  return measureOperation("planner", () => loadTaskPlannerData(searchParams, includeTasks))
 }
 
-async function loadTaskPlannerData(searchParams: TasksSearchParams) {
+async function loadTaskPlannerData(searchParams: TasksSearchParams, includeTasks: boolean) {
+  const { filters, page, invalid } = parseTaskQuery(searchParams)
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {
@@ -41,28 +41,19 @@ async function loadTaskPlannerData(searchParams: TasksSearchParams) {
   }
 
   const userId = user.id
+  const timeZone = await getUserTimeZone(userId)
+  const todayISO = toDateInTimeZone(new Date(), timeZone)
 
   await synchronizeRecurringTaskOccurrences(supabase, userId)
 
-  const [tasksResult, subjectsResult] = await Promise.all([
-    supabase
-      .from("tasks")
-      .select(
-        "id, title, description, tags, due_date, priority, status, subject_id, series_id, created_at, subject:subjects(subject_code, subject_name), series:task_series(recurrence_type)",
-      )
-      .eq("user_id", userId)
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false }),
+  const [taskPage, subjectsResult] = await Promise.all([
+    includeTasks ? queryTaskPage(supabase, filters, page) : null,
     supabase
       .from("subjects")
       .select("id, subject_code, subject_name, semester:semesters(year_level, term, school_year_start)")
       .eq("user_id", userId)
       .order("subject_code", { ascending: true }),
   ])
-
-  if (tasksResult.error) {
-    throwPublicError("tasks.loadPlannerTasks", tasksResult.error, "Unable to load your tasks right now.")
-  }
 
   if (subjectsResult.error) {
     throwPublicError("tasks.loadPlannerSubjects", subjectsResult.error, "Unable to load your tasks right now.")
@@ -74,11 +65,6 @@ async function loadTaskPlannerData(searchParams: TasksSearchParams) {
   const firstOrNull = <T,>(value: T | T[] | null | undefined): T | null =>
     Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
 
-  const allTasks = (tasksResult.data ?? []).map((task) => ({
-    ...task,
-    subject: firstOrNull(task.subject),
-    recurrence_type: firstOrNull(task.series)?.recurrence_type ?? null,
-  }))
   const subjects = (subjectsResult.data ?? []).map((subject) => ({
     id: subject.id,
     code: subject.subject_code,
@@ -90,29 +76,14 @@ async function loadTaskPlannerData(searchParams: TasksSearchParams) {
     }),
   }))
 
-  const searchTerm = searchParams.q?.trim().toLowerCase() ?? ""
-  const filteredTasks = allTasks.filter((task) => {
-    // One search box covers title, description, and tags (OR, not AND) —
-    // there's no separate tag-filter UI, so this is the only way typing
-    // "exam" finds a task whose only match is a tag rather than the title.
-    const searchMatches =
-      !searchTerm ||
-      task.title.toLowerCase().includes(searchTerm) ||
-      Boolean(task.description?.toLowerCase().includes(searchTerm)) ||
-      (Array.isArray(task.tags) && task.tags.some((tag) => tag.toLowerCase().includes(searchTerm)))
-    // No explicit status filter means "Active" (todo + in_progress) — done
-    // tasks are hidden from the default planner and only surface when the
-    // user explicitly selects the Done filter (or any other single status).
-    const statusMatches = searchParams.status ? task.status === searchParams.status : task.status !== "done"
-    const subjectMatches = !searchParams.subject || task.subject_id === searchParams.subject
-    const priorityMatches = !searchParams.priority || task.priority === searchParams.priority
-
-    return searchMatches && statusMatches && subjectMatches && priorityMatches
-  })
-
   return {
-    allTasks,
-    tasks: filteredTasks,
+    todayISO,
+    timeZone,
+    userId,
+    taskPage,
+    filters,
+    page,
+    invalidFilters: invalid,
     subjects,
   }
 }

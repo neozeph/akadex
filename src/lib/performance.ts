@@ -2,7 +2,7 @@ import "server-only"
 import { AsyncLocalStorage } from "node:async_hooks"
 import { headers } from "next/headers"
 
-const OPERATIONS = ["auth", "dashboard", "planner", "semester", "academic-analytics", "activity-analytics"] as const
+const OPERATIONS = ["auth", "dashboard", "planner", "task-page", "semester", "academic-analytics", "activity-analytics"] as const
 type OperationName = typeof OPERATIONS[number]
 const TABLES = new Set(["profiles", "semesters", "subjects", "tasks", "task_series", "pomodoro_sessions"])
 const MAX_DIAGNOSTIC_BYTES = 2 * 1024 * 1024

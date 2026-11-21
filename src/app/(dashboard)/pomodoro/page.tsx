@@ -23,7 +23,7 @@ export default async function PomodoroPage() {
   }
 
   const userId = user.id
-  const { recentSessions, completedTodayCount, totalFocusMinutes, focusDurationMinutes, breakDurationMinutes } =
+  const { recentSessions, completedTodayCount, totalFocusMinutes, focusDurationMinutes, breakDurationMinutes, timeZone } =
     await getPomodoroPageData(userId)
 
   return (
@@ -41,9 +41,11 @@ export default async function PomodoroPage() {
       />
 
       <PomodoroTimer
+        key={userId}
+        userId={userId}
         focusMinutes={focusDurationMinutes}
         breakMinutes={breakDurationMinutes}
-        onCompleteSession={logPomodoroSession}
+        onCompleteSession={logPomodoroSession.bind(null, userId)}
       />
 
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
@@ -121,7 +123,7 @@ export default async function PomodoroPage() {
                     {session.completed ? "Focus session completed" : "Incomplete session"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <SessionTime value={session.ended_at ?? session.created_at} />
+                    <SessionTime value={session.ended_at ?? session.created_at} timeZone={timeZone} />
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

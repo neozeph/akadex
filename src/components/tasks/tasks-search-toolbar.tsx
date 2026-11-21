@@ -1,18 +1,18 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { TaskLink } from "@/components/tasks/task-link"
 import { Search, X } from "lucide-react"
 
 import { formatTaskPriority, formatTaskStatus, TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS } from "@/lib/tasks"
 import { Button } from "@/components/ui/button"
-import type { TasksSearchParams } from "@/app/(dashboard)/tasks/data"
+import { taskPageHref, type TaskFilters } from "@/lib/task-query"
 
 type TasksSearchToolbarProps = {
-  searchParams: TasksSearchParams
+  searchParams: TaskFilters
   subjects: Array<{ id: string; code: string }>
   hasActiveFilters: boolean
+  pending?: boolean
 }
 
 /**
@@ -20,7 +20,7 @@ type TasksSearchToolbarProps = {
  * subject, priority) and only changes `status` — omitting it entirely for
  * the "Active" chip, which is the default (no status param) view.
  */
-function buildStatusHref(current: TasksSearchParams, status?: string) {
+function buildStatusHref(current: TaskFilters, status?: string) {
   const query: Record<string, string> = {}
 
   if (current.q?.trim()) query.q = current.q.trim()
@@ -28,7 +28,7 @@ function buildStatusHref(current: TasksSearchParams, status?: string) {
   if (current.priority) query.priority = current.priority
   if (status) query.status = status
 
-  return Object.keys(query).length > 0 ? { pathname: "/tasks", query } : "/tasks"
+  return taskPageHref({q:query.q??"",subject:query.subject??"",priority:query.priority??"",status:query.status??""},1)
 }
 
 /**
@@ -52,8 +52,7 @@ function buildStatusHref(current: TasksSearchParams, status?: string) {
  * form can contain non-form content) and they don't trigger submission
  * since they render as `<a>`, not `<button>`.
  */
-export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }: TasksSearchToolbarProps) {
-  const router = useRouter()
+export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters, pending=false }: TasksSearchToolbarProps) {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -76,15 +75,18 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
     if (priority) params.set("priority", priority)
 
     const query = params.toString()
-    router.push(query ? `/tasks?${query}` : "/tasks")
+    window.history.pushState(null,"",query ? `/tasks?${query}` : "/tasks")
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
+    <form onSubmit={handleSubmit} aria-busy={pending} className="flex flex-wrap items-center gap-2">
       <div className="relative w-full sm:w-56">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           name="q"
+          aria-label="Search tasks"
+          maxLength={200}
+          disabled={pending}
           defaultValue={searchParams.q ?? ""}
           placeholder="Search tasks..."
           className="h-9 w-full rounded-xl border border-border bg-background px-4 pl-10 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20"
@@ -97,10 +99,12 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
       <select
         id="subject-filter"
         name="subject"
+        disabled={pending}
         defaultValue={searchParams.subject ?? ""}
         className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20 sm:w-36"
       >
         <option value="">All Subjects</option>
+        {searchParams.subject && !subjects.some((subject) => subject.id === searchParams.subject) ? <option value={searchParams.subject}>Unavailable subject</option> : null}
         {subjects.map((subject) => (
           <option key={subject.id} value={subject.id}>
             {subject.code}
@@ -114,6 +118,7 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
       <select
         id="priority-filter"
         name="priority"
+        disabled={pending}
         defaultValue={searchParams.priority ?? ""}
         className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground focus:ring-3 focus:ring-primary/20 sm:w-32"
       >
@@ -127,26 +132,27 @@ export function TasksSearchToolbar({ searchParams, subjects, hasActiveFilters }:
 
       <div className="flex flex-wrap items-center gap-1.5">
         <Button asChild variant={!searchParams.status ? "default" : "outline"} size="sm">
-          <Link href={buildStatusHref(searchParams)}>Active</Link>
+          <TaskLink href={buildStatusHref(searchParams)}>Active</TaskLink>
         </Button>
         {TASK_STATUS_OPTIONS.map((status) => (
           <Button key={status} asChild variant={searchParams.status === status ? "default" : "outline"} size="sm">
-            <Link href={buildStatusHref(searchParams, status)}>{formatTaskStatus(status)}</Link>
+            <TaskLink href={buildStatusHref(searchParams, status)}>{formatTaskStatus(status)}</TaskLink>
           </Button>
         ))}
       </div>
 
       <div className="flex items-center gap-1.5">
-        <Button type="submit" variant="outline" size="sm">
-          Search
+        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+          {pending ? "Searching..." : "Search"}
         </Button>
         {hasActiveFilters ? (
-          <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/tasks")}>
+          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => window.history.pushState(null,"","/tasks")}>
             <X className="size-4" />
             Clear
           </Button>
         ) : null}
       </div>
+      {pending ? <p role="status" aria-live="polite" className="text-sm text-muted-foreground">Updating tasks...</p> : null}
     </form>
   )
 }

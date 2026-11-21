@@ -7,15 +7,22 @@ import { localRuntime } from "./runtime.ts"
 import { stopProcessTree } from "./process.ts"
 import { buildFingerprint } from "./build.ts"
 import { execFileSync } from "node:child_process"
+import { adoptLocalBaseline, applyLocalMigrations } from "./migrations.ts"
 
 async function main() {
   const mode = process.argv[2]
   if (Number(process.versions.node.split(".")[0]) < 24) throw new Error("E2E requires Node.js 24 or newer.")
-  if (!["db", "serve", "setup", "test", "baseline"].includes(mode)) throw new Error("Unknown isolated E2E command.")
+  if (!["db", "adopt-baseline", "serve", "setup", "test", "baseline"].includes(mode)) throw new Error("Unknown isolated E2E command.")
+  if (mode === "adopt-baseline") {
+    await adoptLocalBaseline()
+    console.info("Verified local baseline registered. No schema or rows were replayed.")
+    return
+  }
   if (mode === "db") {
     assertLocalE2EEnvironment(process.env.E2E_APP_URL ?? E2E_APP_URL, process.env.E2E_SUPABASE_URL ?? E2E_SUPABASE_URL)
     execFileSync(process.execPath, [resolve("node_modules/supabase/dist/supabase.js"), "start", "--exclude", "realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor"], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 20 * 1024 * 1024 })
     localRuntime()
+    await applyLocalMigrations()
     console.info("Dedicated local Supabase is ready. CLI credentials were not printed.")
     return
   }

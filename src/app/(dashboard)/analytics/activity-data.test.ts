@@ -1,5 +1,37 @@
-import { describe, expect, it } from "vitest"
-import { buildDailyBuckets, buildMonthlyBuckets, DEFAULT_ANALYTICS_RANGE, parseAnalyticsRange } from "./activity-data"
+import { describe, expect, it, vi } from "vitest"
+import { buildDailyBuckets, buildMonthlyBuckets, DEFAULT_ANALYTICS_RANGE, parseAnalyticsRange, getActivityAnalyticsData } from "./activity-data"
+import report from "../../../../docs/specs/results/fixtures/08-activity-report.json"
+
+vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [] }) }))
+
+it("uses one aggregate request for large histories and maps captured timezone buckets", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2030-01-01T16:00:00Z"))
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321")
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "public-test-key")
+  const calls:{path:string;body:unknown}[]=[]
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?:RequestInit) => {
+    const url=new URL(input instanceof Request?input.url:String(input))
+    if(url.pathname.endsWith("/profiles"))return Response.json({timezone:"Asia/Manila"})
+    calls.push({path:url.pathname,body:init?.body?JSON.parse(String(init.body)):null})
+    return Response.json(url.pathname.endsWith("/activity_report")?report:[])
+  })
+  try{
+    const result=await getActivityAnalyticsData("00000000-0000-4000-8000-000000000001","7d")
+    expect(calls).toEqual([{path:"/rest/v1/rpc/activity_report",body:{p_today:"2030-01-02",p_timezone:"Asia/Manila",p_range:"7d"}}]);expect(result.completedCount).toBe(1104)
+    expect(result.activeNow).toBe(1102);expect(result.focusTimeSeconds).toBe(66060)
+    expect(result.taskTrend.at(-1)).toEqual({key:"2030-01-02",label:"JAN 2",value:1104})
+    expect(result.focusTrend.at(-1)?.value).toBe(1101)
+  }finally{vi.useRealTimers();vi.unstubAllEnvs();vi.unstubAllGlobals()}
+})
+
+it.each([null,{...report,completedCount:null}])("rejects incomplete aggregate data rather than showing false totals",async(data)=>{
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL","http://127.0.0.1:54321")
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY","public-test-key")
+  vi.spyOn(console,"error").mockImplementation(()=>{})
+  vi.stubGlobal("fetch",async(input:RequestInfo|URL)=>Response.json(String(input).includes('/profiles')?{timezone:'Asia/Manila'}:data))
+  try{await expect(getActivityAnalyticsData('00000000-0000-4000-8000-000000000001','all')).rejects.toThrow('Unable to load your analytics right now.')}
+  finally{vi.unstubAllGlobals();vi.unstubAllEnvs();vi.restoreAllMocks()}
+})
 
 describe("parseAnalyticsRange", () => {
   it("accepts each valid range value", () => {

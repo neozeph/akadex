@@ -1,3 +1,4 @@
+import { readAllPages } from "@/lib/read-all-pages"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -35,56 +36,26 @@ async function loadSemesterDetail(semesterId: string) {
 
   const userId = user.id
 
-  const { data: semester, error: semesterError } = await supabase
-    .from("semesters")
-    .select("id, title, school_year, year_level, term, school_year_start, created_at")
-    .eq("id", semesterId)
-    .eq("user_id", userId)
-    .maybeSingle()
-
-  if (semesterError || !semester) {
-    redirect("/semesters")
+  // Ownership predicates allow these independent reads to start together.
+  const [semesterResult,subjectsResult,countsResult]=await Promise.all([
+    supabase.from("semesters").select("id, title, school_year, year_level, term, school_year_start, created_at")
+      .eq("id",semesterId).eq("user_id",userId).maybeSingle(),
+    readAllPages((from,to)=>supabase.from("subjects")
+      .select("id, subject_code, subject_name, units, grade, created_at")
+      .eq("semester_id",semesterId).eq("user_id",userId)
+      .order("created_at",{ascending:false}).order("id").range(from,to)),
+    readAllPages(async(from,to)=>{
+      const result=await supabase.rpc("semester_task_counts",{p_semester:semesterId}).order("subject_id").range(from,to)
+      return {data:Array.isArray(result.data)?result.data as {subject_id:string;active_count:number}[]:null,error:result.error}
+    }),
+  ])
+  const semester=semesterResult.data
+  if(semesterResult.error || !semester)redirect("/semesters")
+  if(subjectsResult.error || countsResult.error || !Array.isArray(countsResult.data)){
+    throwPublicError("semesters.loadSubjects",subjectsResult.error??countsResult.error??new Error("Missing counts"),"Unable to load this semester right now.")
   }
-
-  const { data: subjects, error: subjectsError } = await supabase
-    .from("subjects")
-    .select("id, subject_code, subject_name, units, grade, created_at")
-    .eq("semester_id", semesterId)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-
-  if (subjectsError) {
-    throwPublicError("semesters.loadSubjects", subjectsError, "Unable to load this semester right now.")
-  }
-
-  const subjectRows = subjects ?? []
-  const subjectIds = subjectRows.map((subject) => subject.id)
-
-  // Single query for every subject's active task count instead of one
-  // query per subject (N+1) — aggregated client-side into a Map below.
-  const activeTaskCountBySubjectId = new Map<string, number>()
-
-  if (subjectIds.length > 0) {
-    const { data: activeTasks, error: activeTasksError } = await supabase
-      .from("tasks")
-      .select("id, subject_id")
-      .eq("user_id", userId)
-      .in("subject_id", subjectIds)
-      .neq("status", "done")
-
-    if (activeTasksError) {
-      throwPublicError("semesters.loadActiveTasks", activeTasksError, "Unable to load this semester right now.")
-    }
-
-    for (const task of activeTasks ?? []) {
-      if (task.subject_id) {
-        activeTaskCountBySubjectId.set(
-          task.subject_id,
-          (activeTaskCountBySubjectId.get(task.subject_id) ?? 0) + 1,
-        )
-      }
-    }
-  }
+  const subjectRows=subjectsResult.data??[]
+  const activeTaskCountBySubjectId=new Map<string,number>(countsResult.data.map((row:{subject_id:string;active_count:number})=>[row.subject_id,Number(row.active_count)]))
 
   return { semester, subjects: subjectRows, activeTaskCountBySubjectId }
 }
