@@ -44,7 +44,9 @@ test('spec08 S1/S2: large histories, ranges and grouped semester counts stay acc
     const other=await browser.newContext({storageState:authState('b')})
     try{const foreign=await other.newPage();await foreign.goto(`/semesters/${semester}`);await expect(foreign).toHaveURL(/\/semesters$/);await expect(foreign.getByText(marker,{exact:true})).toHaveCount(0)}finally{await other.close()}
     await page.goto('/dashboard')
-    await expect(page.getByText('1101 sessions logged',{exact:true})).toBeVisible()
+    const focusToday=page.getByRole('main').getByRole('article').filter({has:page.getByText('Focus today',{exact:true})})
+    await expect(focusToday).toHaveCount(1)
+    await expect(focusToday.getByText('1101 sessions logged',{exact:true})).toBeVisible()
   }finally{
     if(user)localSQL(`DELETE FROM public.pomodoro_sessions WHERE user_id='${user}' AND completion_id IN (SELECT md5('${marker}'||n)::uuid FROM generate_series(1,1101) n);DELETE FROM public.tasks WHERE title='${marker}';DELETE FROM public.semesters WHERE id='${semester}'`)
     await context.close()
