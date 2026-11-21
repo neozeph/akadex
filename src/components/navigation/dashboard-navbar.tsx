@@ -1,16 +1,10 @@
-import { getSupabaseClaims } from "@/lib/supabase/session"
+import { getProfileDisplayName } from "@/lib/profile-name"
+import { cookies } from "next/headers"
+import { getAuthenticatedUser } from "@/lib/supabase/session"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { throwPublicError } from "@/lib/server-errors"
 
 import { DashboardNavbarClient } from "./dashboard-navbar-client"
-
-function getDisplayName(claims: Record<string, unknown> | undefined) {
-  const metadata = (claims?.user_metadata ?? {}) as Record<string, unknown>
-  const fullName = typeof metadata.full_name === "string" ? metadata.full_name : undefined
-  const name = typeof metadata.name === "string" ? metadata.name : undefined
-  const email = typeof claims?.email === "string" ? claims.email : undefined
-  const candidate = fullName ?? name ?? email?.split("@")?.[0] ?? "Student"
-
-  return candidate.split(" ")[0] || "Student"
-}
 
 function getInitials(name: string) {
   return name
@@ -22,9 +16,12 @@ function getInitials(name: string) {
 }
 
 export async function DashboardNavbar() {
-  const { data } = await getSupabaseClaims()
-  const claims = data?.claims as Record<string, unknown> | undefined
-  const displayName = getDisplayName(claims)
+  const user=await getAuthenticatedUser()
+  const store=await cookies()
+  const supabase=createSupabaseServerClient({getAll:()=>store.getAll()})
+  const {data:profile,error}=user?await supabase.from('profiles').select('full_name').eq('id',user.id).maybeSingle():{data:null,error:null}
+  if(error)throwPublicError('navigation.loadProfile',error,'Unable to load your profile right now.')
+  const displayName = getProfileDisplayName(user??undefined,profile?.full_name)
   const initials = getInitials(displayName)
 
   return <DashboardNavbarClient displayName={displayName} initials={initials} />

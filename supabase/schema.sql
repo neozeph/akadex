@@ -64,6 +64,10 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- Keep existing installations aligned with the additive migration.
+alter table public.profiles
+add column if not exists timezone text not null default 'Asia/Manila';
+
 create table if not exists public.semesters (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -422,3 +426,232 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
+
+-- Spec 05: atomic recurring completion history (fresh-schema reference).
+create table if not exists public.task_completions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  task_id uuid references public.tasks(id) on delete set null,
+  series_id uuid references public.task_series(id) on delete set null,
+  occurrence_date date not null,
+  completed_at timestamptz not null default now(),
+  unique (task_id, occurrence_date)
+);
+create index if not exists task_completions_owner_time on public.task_completions(user_id, completed_at);
+alter table public.task_completions enable row level security;
+revoke all on public.task_completions from public, anon, authenticated;
+grant select on public.task_completions to authenticated;
+drop policy if exists "Owners read completion history" on public.task_completions;
+create policy "Owners read completion history" on public.task_completions
+  for select to authenticated using (user_id = auth.uid());
+
+create or replace function public.complete_recurring_task(p_task_id uuid, p_occurrence_date date)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  owner_id uuid := auth.uid();
+  task public.tasks%rowtype;
+  series public.task_series%rowtype;
+  zone text;
+  cutoff date;
+  next_date date;
+  month_start date;
+  anchor_day integer;
+  step integer;
+begin
+  if owner_id is null then raise exception 'Unauthorized' using errcode = '42501'; end if;
+  if p_occurrence_date is null then raise exception 'Occurrence date required' using errcode = '22023'; end if;
+
+  select * into task from public.tasks
+    where id = p_task_id and user_id = owner_id for update;
+  if not found then raise exception 'Task not found' using errcode = '42501'; end if;
+  select * into series from public.task_series
+    where id = task.series_id and user_id = owner_id and active for update;
+  if not found then raise exception 'Active recurring task not found' using errcode = '42501'; end if;
+  if task.status = 'done' or task.due_date is distinct from p_occurrence_date then return false; end if;
+  if exists (select 1 from public.task_completions where task_id = task.id and occurrence_date = p_occurrence_date) then return false; end if;
+
+  select timezone into zone from public.profiles where id = owner_id;
+  zone := coalesce(zone, 'Asia/Manila');
+  cutoff := greatest((current_timestamp at time zone zone)::date, task.due_date);
+  if series.recurrence_type = 'monthly' then
+    anchor_day := extract(day from series.start_date)::integer;
+    month_start := date_trunc('month', greatest(cutoff, series.start_date))::date;
+    loop
+      next_date := month_start + anchor_day - 1;
+      if extract(month from next_date) = extract(month from month_start) and next_date > cutoff and next_date >= series.start_date then exit; end if;
+      month_start := (month_start + interval '1 month')::date;
+    end loop;
+  else
+    step := case when series.recurrence_type = 'weekly' then 7 else 1 end;
+    next_date := series.start_date + (greatest(0, cutoff - series.start_date) / step + 1) * step;
+    if series.recurrence_type = 'weekdays' then
+      while extract(isodow from next_date) in (6, 7) loop next_date := next_date + 1; end loop;
+    end if;
+  end if;
+
+  update public.tasks set status = 'todo', completed_at = null, due_date = next_date
+    where id = task.id and user_id = owner_id;
+  insert into public.task_completions(user_id, task_id, series_id, occurrence_date)
+    values(owner_id, task.id, series.id, p_occurrence_date);
+  return true;
+end;
+$$;
+revoke all on function public.complete_recurring_task(uuid,date) from public, anon;
+grant execute on function public.complete_recurring_task(uuid,date) to authenticated;
+notify pgrst, 'reload schema';
+
+create or replace function public.guard_recurring_task_edits()
+returns trigger language plpgsql set search_path = '' as $$
+declare series_owner uuid; series_active boolean;
+begin
+  if tg_op = 'UPDATE' then
+    if old.series_id is not null and new.series_id is distinct from old.series_id
+      and exists (select 1 from public.task_series where id = old.series_id and active) then
+      raise exception 'Cannot detach an active recurring occurrence' using errcode = '23514';
+    end if;
+  end if;
+  if new.series_id is null then return new; end if;
+  select user_id, active into series_owner, series_active from public.task_series where id = new.series_id;
+  if series_owner is distinct from new.user_id then raise exception 'Invalid recurring series' using errcode = '23514'; end if;
+  if not series_active then return new; end if;
+  if new.due_date is null then raise exception 'Recurring date required' using errcode = '23514'; end if;
+  if new.status = 'done' then
+    if tg_op = 'INSERT' then raise exception 'Use atomic completion' using errcode = '23514'; end if;
+    if old.status <> 'done' then raise exception 'Use atomic completion' using errcode = '23514'; end if;
+  end if;
+  if exists (select 1 from public.task_completions where task_id = new.id and occurrence_date = new.due_date) then
+    raise exception 'Occurrence already completed' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.guard_recurring_task_edits() from public, anon, authenticated;
+drop trigger if exists guard_recurring_task_edits on public.tasks;
+create trigger guard_recurring_task_edits before insert or update on public.tasks
+  for each row execute function public.guard_recurring_task_edits();
+notify pgrst, 'reload schema';
+
+-- SQL arguments are literal data; substring search needs no PostgREST OR grammar.
+-- Invoker rights and the ownership predicate retain task/relationship RLS.
+create or replace function public.search_tasks(
+  p_search text default '',
+  p_status public.task_status default null,
+  p_subject uuid default null,
+  p_priority public.task_priority default null
+) returns setof public.tasks
+language sql stable security invoker
+as $$
+  select t.* from public.tasks t
+  where t.user_id = auth.uid()
+    and ((p_status is null and t.status <> 'done') or t.status = p_status)
+    and (p_subject is null or t.subject_id = p_subject)
+    and (p_priority is null or t.priority = p_priority)
+    and pg_catalog.char_length(coalesce(p_search, '')) <= 200
+    and (
+      coalesce(pg_catalog.btrim(p_search), '') = ''
+      or pg_catalog.strpos(pg_catalog.lower(t.title), pg_catalog.lower(pg_catalog.btrim(p_search))) > 0
+      or pg_catalog.strpos(pg_catalog.lower(coalesce(t.description, '')), pg_catalog.lower(pg_catalog.btrim(p_search))) > 0
+      or exists (
+        select 1 from pg_catalog.unnest(t.tags) as tag
+        where pg_catalog.strpos(pg_catalog.lower(tag), pg_catalog.lower(pg_catalog.btrim(p_search))) > 0
+      )
+    );
+$$;
+revoke all on function public.search_tasks(text,public.task_status,uuid,public.task_priority) from public, anon;
+grant execute on function public.search_tasks(text,public.task_status,uuid,public.task_priority) to authenticated;
+notify pgrst, 'reload schema';
+-- Invoker rights and explicit auth.uid predicates retain every table's RLS.
+create function public.activity_report(p_today date, p_timezone text, p_range text)
+returns jsonb language plpgsql stable security invoker set search_path = '' as $$
+declare report jsonb; range_start timestamptz; range_end timestamptz;
+begin
+  if p_range not in ('7d','30d','all') or p_range is null or p_today is null then
+    raise exception 'Invalid report range' using errcode = '22023';
+  end if;
+  range_start := case when p_range = 'all' then '-infinity'::timestamptz
+    else (p_today - case when p_range = '7d' then 6 else 29 end)::timestamp at time zone p_timezone end;
+  range_end := (p_today + 1)::timestamp at time zone p_timezone;
+  with completions as (
+    select t.completed_at as at from public.tasks t
+    where t.user_id=auth.uid() and t.status='done'
+      and t.completed_at >= range_start and t.completed_at < range_end
+      and not exists(select 1 from public.task_completions e where e.user_id=auth.uid()
+        and e.task_id=t.id and e.occurrence_date=t.due_date)
+    union all
+    select e.completed_at from public.task_completions e where e.user_id=auth.uid()
+      and e.completed_at >= range_start and e.completed_at < range_end
+  ), task_days as (
+    select case when p_range='all' then date_trunc('month',at at time zone p_timezone)::date
+      else (at at time zone p_timezone)::date end as day, count(*) as value
+    from completions group by 1
+  ), sessions as (
+    select s.duration,s.ended_at from public.pomodoro_sessions s
+    where s.user_id=auth.uid() and s.completed
+      and s.ended_at >= range_start and s.ended_at < range_end
+  ), focus_days as (
+    select case when p_range='all' then date_trunc('month',ended_at at time zone p_timezone)::date
+      else (ended_at at time zone p_timezone)::date end as day, sum(duration) as value
+    from sessions group by 1
+  )
+  select jsonb_build_object(
+    'totalTaskCount',(select count(*) from public.tasks where user_id=auth.uid()),
+    'activeNow',(select count(*) from public.tasks where user_id=auth.uid() and status<>'done'),
+    'overdueNow',(select count(*) from public.tasks where user_id=auth.uid() and status<>'done' and due_date<p_today),
+    'legacyUndatedCompletionCount',(select count(*) from public.tasks where user_id=auth.uid() and status='done' and completed_at is null),
+    'completedCount',(select count(*) from completions),
+    'completedSessionCount',(select count(*) from sessions),
+    'focusTimeSeconds',coalesce((select sum(duration) from sessions),0),
+    'taskDays',coalesce((select jsonb_agg(jsonb_build_object('dateISO',day,'value',value) order by day) from task_days),'[]'::jsonb),
+    'focusDays',coalesce((select jsonb_agg(jsonb_build_object('dateISO',day,'value',value) order by day) from focus_days),'[]'::jsonb)
+  ) into report;
+  return report;
+end;
+$$;
+
+create function public.focus_summary(p_start timestamptz,p_end timestamptz)
+returns jsonb language sql stable security invoker set search_path = '' as $$
+  select jsonb_build_object('count',count(*),'seconds',coalesce(sum(duration),0))
+  from public.pomodoro_sessions where user_id=auth.uid() and completed
+    and ended_at >= p_start and ended_at < p_end;
+$$;
+
+create function public.semester_task_counts(p_semester uuid)
+returns table(subject_id uuid,active_count bigint)
+language sql stable security invoker set search_path = '' as $$
+  select t.subject_id,count(*) from public.tasks t
+  join public.subjects s on s.id=t.subject_id and s.user_id=auth.uid()
+  join public.semesters sem on sem.id=s.semester_id and sem.user_id=auth.uid()
+  where t.user_id=auth.uid() and t.status<>'done' and sem.id=p_semester
+  group by t.subject_id;
+$$;
+
+revoke all on function public.activity_report(date,text,text),public.focus_summary(timestamptz,timestamptz),public.semester_task_counts(uuid) from public,anon;
+grant execute on function public.activity_report(date,text,text),public.focus_summary(timestamptz,timestamptz),public.semester_task_counts(uuid) to authenticated;
+notify pgrst,'reload schema';
+-- Refuse incompatible legacy data instead of silently rewriting ownership.
+do $$ begin
+  if exists(select 1 from public.subjects s join public.semesters p on p.id=s.semester_id where s.user_id<>p.user_id)
+    or exists(select 1 from public.tasks t join public.subjects s on s.id=t.subject_id where t.user_id<>s.user_id)
+    or exists(select 1 from public.task_series t join public.subjects s on s.id=t.subject_id where t.user_id<>s.user_id)
+  then raise exception 'Existing cross-account parent links require manual review' using errcode='23514'; end if;
+end $$;
+
+create unique index semesters_owner_id_key on public.semesters(user_id,id);
+create unique index subjects_owner_id_key on public.subjects(user_id,id);
+
+alter table public.subjects add constraint subjects_owned_semester_fk
+  foreign key(user_id,semester_id) references public.semesters(user_id,id) on delete cascade;
+alter table public.tasks add constraint tasks_owned_subject_fk
+  foreign key(user_id,subject_id) references public.subjects(user_id,id) on delete set null(subject_id);
+alter table public.task_series add constraint task_series_owned_subject_fk
+  foreign key(user_id,subject_id) references public.subjects(user_id,id) on delete set null(subject_id);
+
+-- Replace old single-column constraints only after the stricter ones validate.
+alter table public.subjects drop constraint subjects_semester_id_fkey;
+alter table public.tasks drop constraint tasks_subject_id_fkey;
+alter table public.task_series drop constraint task_series_subject_id_fkey;
+notify pgrst,'reload schema';

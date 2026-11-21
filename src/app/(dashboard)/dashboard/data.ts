@@ -1,7 +1,12 @@
+import { readAllPages } from "@/lib/read-all-pages"
 import { cookies } from "next/headers"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { calculateGwa } from "@/lib/grades"
+import { measureOperation } from "@/lib/performance"
+import { throwPublicError } from "@/lib/server-errors"
+import { getUserTimeZone } from "@/lib/user-timezone"
+import { getDayBoundsInTimeZone, toDateInTimeZone } from "@/lib/dates"
 
 export type DashboardData = {
   overallGpa: number | null
@@ -21,13 +26,11 @@ export type DashboardData = {
   }>
 }
 
-function startOfToday() {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  return now.toISOString()
+export function getDashboardData(userId: string): Promise<DashboardData> {
+  return measureOperation("dashboard", () => loadDashboardData(userId))
 }
 
-export async function getDashboardData(userId: string): Promise<DashboardData> {
+async function loadDashboardData(userId: string): Promise<DashboardData> {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll() {
@@ -35,6 +38,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     },
   })
 
+  const timeZone = await getUserTimeZone(userId)
+  const { start, end } = getDayBoundsInTimeZone(toDateInTimeZone(new Date(), timeZone), timeZone)
   const [
     semestersCountResult,
     subjectsResult,
@@ -47,10 +52,10 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       .from("semesters")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId),
-    supabase
+    readAllPages((from,to)=>supabase
       .from("subjects")
       .select("id, units, grade")
-      .eq("user_id", userId),
+      .eq("user_id", userId).order("id").range(from,to)),
     supabase
       .from("tasks")
       .select("id", { count: "exact", head: true })
@@ -68,16 +73,22 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       .neq("status", "done")
       .order("due_date", { ascending: true, nullsFirst: false })
       .limit(5),
-    supabase
-      .from("pomodoro_sessions")
-      .select("duration, completed")
-      .eq("user_id", userId)
-      .gte("created_at", startOfToday()),
+    supabase.rpc("focus_summary", { p_start: start, p_end: end }),
   ])
+
+  const failedQuery = [semestersCountResult, subjectsResult, pendingTasksCountResult, completedTasksCountResult, upcomingTasksResult, pomodoroResult].find((result) => result.error)
+  if (failedQuery?.error) {
+    throwPublicError("dashboard.load", failedQuery.error, "Unable to load your dashboard right now.")
+  }
+  const counts = [semestersCountResult.count, pendingTasksCountResult.count, completedTasksCountResult.count]
+  const rows = [subjectsResult.data, upcomingTasksResult.data]
+  if (counts.some((value) => typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) || rows.some((value) => !Array.isArray(value)) || !pomodoroResult.data || !Number.isSafeInteger(pomodoroResult.data.count) || !Number.isFinite(pomodoroResult.data.seconds)) {
+    throwPublicError("dashboard.invalidResponse", new Error("Incomplete dashboard response"), "Unable to load your dashboard right now.")
+  }
 
   const subjects = subjectsResult.data ?? []
   const upcomingTasks = upcomingTasksResult.data ?? []
-  const pomodoroSessions = pomodoroResult.data ?? []
+  const focus = pomodoroResult.data as { count: number; seconds: number }
 
   const totalUnitsCompleted = subjects
     .filter((subject) => subject.grade !== null)
@@ -96,12 +107,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     semesterCount: semestersCountResult.count ?? 0,
     pendingTaskCount: pendingTasksCountResult.count ?? 0,
     completedTaskCount: completedTasksCountResult.count ?? 0,
-    pomodoroSessionsToday: pomodoroSessions.filter((session) => session.completed).length,
-    focusMinutesToday: Math.round(
-      pomodoroSessions
-        .filter((session) => session.completed)
-        .reduce((sum, session) => sum + Number(session.duration), 0) / 60,
-    ),
+    pomodoroSessionsToday: focus.count,
+    focusMinutesToday: Math.round(focus.seconds / 60),
     upcomingTasks: upcomingTasks
       .map((task) => ({
         id: task.id,

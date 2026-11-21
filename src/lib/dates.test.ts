@@ -5,7 +5,33 @@ import {
   daysBetweenISO,
   isWeekend,
   toISODate,
+  isValidTimeZone,
+  toDateInTimeZone,
+  getDayBoundsInTimeZone,
 } from "@/lib/dates"
+
+describe("account calendar boundaries", () => {
+  it("validates timezone identifiers rather than fixed offsets or arbitrary input", () => {
+    for (const zone of ["Asia/Manila", "America/New_York", "UTC"]) expect(isValidTimeZone(zone)).toBe(true)
+    for (const zone of ["", "not/a-zone", "+08:00", "x".repeat(200)]) expect(isValidTimeZone(zone)).toBe(false)
+  })
+  it("changes the Manila date exactly at midnight", () => {
+    expect(toDateInTimeZone(new Date("2026-11-19T15:59:59.999Z"), "Asia/Manila")).toBe("2026-11-19")
+    expect(toDateInTimeZone(new Date("2026-11-19T16:00:00Z"), "Asia/Manila")).toBe("2026-11-20")
+    expect(getDayBoundsInTimeZone("2026-11-20", "Asia/Manila")).toEqual({ start: "2026-11-19T16:00:00.000Z", end: "2026-11-20T16:00:00.000Z" })
+  })
+  it.each([
+    ["2026-03-08", "2026-03-08T05:00:00.000Z", "2026-03-09T04:00:00.000Z"],
+    ["2026-11-01", "2026-11-01T04:00:00.000Z", "2026-11-02T05:00:00.000Z"],
+  ])("uses the actual DST boundaries of %s", (day, start, end) => {
+    expect(getDayBoundsInTimeZone(day, "America/New_York")).toEqual({ start, end })
+  })
+  it("handles a midnight DST jump and rejects invalid dates/zones", () => {
+    expect(getDayBoundsInTimeZone("2026-09-06", "America/Santiago")).toEqual({ start: "2026-09-06T04:00:00.000Z", end: "2026-09-07T03:00:00.000Z" })
+    expect(() => getDayBoundsInTimeZone("2026-02-30", "UTC")).toThrow()
+    expect(() => getDayBoundsInTimeZone("2026-11-20", "invalid")).toThrow()
+  })
+})
 
 describe("toISODate", () => {
   it("pads single-digit month and day", () => {

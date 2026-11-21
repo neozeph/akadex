@@ -1,4 +1,45 @@
 const WEEKDAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const
+export const DEFAULT_TIME_ZONE = "Asia/Manila"
+
+export function isValidTimeZone(value: string) {
+  if (!value || value.length > 100 || /^[+-]/.test(value)) return false
+  try { new Intl.DateTimeFormat("en", { timeZone: value }); return true } catch { return false }
+}
+
+function dateFormatter(timeZone: string) {
+  return new Intl.DateTimeFormat("en", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+}
+
+function formatCalendarDate(date: Date, formatter: Intl.DateTimeFormat) {
+  const parts = formatter.formatToParts(date)
+  const part = (type: string) => parts.find((value) => value.type === type)!.value
+  return `${part("year")}-${part("month")}-${part("day")}`
+}
+
+export function toDateInTimeZone(instant: Date, timeZone: string) {
+  return formatCalendarDate(instant, dateFormatter(timeZone))
+}
+
+/** First instant of this civil day and the next, including midnight/DST jumps. */
+export function getDayBoundsInTimeZone(dateISO: string, timeZone: string) {
+  const anchor = new Date(`${dateISO}T00:00:00.000Z`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO) || !Number.isFinite(anchor.getTime()) || anchor.toISOString().slice(0, 10) !== dateISO) throw new Error("Invalid calendar date")
+  const formatter = dateFormatter(timeZone)
+  function boundary(day: string, utc: number) {
+    // Search seconds within ±36 hours. This also handles days without midnight.
+    let low = utc / 1000 - 36 * 3600
+    let high = utc / 1000 + 36 * 3600
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2)
+      if (formatCalendarDate(new Date(middle * 1000), formatter) < day) low = middle + 1
+      else high = middle
+    }
+    return new Date(low * 1000).toISOString()
+  }
+  const next = new Date(anchor)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return { start: boundary(dateISO, anchor.getTime()), end: boundary(next.toISOString().slice(0, 10), next.getTime()) }
+}
 const MONTH_LABELS = [
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ] as const

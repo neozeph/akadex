@@ -12,6 +12,11 @@
 
 # testing
 /coverage
+/e2e/.auth/
+/e2e/.cache/
+/test-results/
+/playwright-report/
+/.next-e2e/
 
 # next.js
 /.next/
@@ -33,7 +38,15 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
-.claude/
+# local agent skills, settings, and working files
+/skills/
+/.agents/
+/.codex/
+/.claude/
+/.superpowers/
+# Applies to untracked instruction files; tracked files remain tracked.
+AGENTS.md
+CLAUDE.md
 # vercel
 .vercel
 

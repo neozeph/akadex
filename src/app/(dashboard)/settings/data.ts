@@ -14,7 +14,7 @@ export async function getSettingsPageData() {
 
   const [user, profileResult] = await Promise.all([
     getAuthenticatedUser(),
-    supabase.from("profiles").select("full_name, avatar_url, created_at").maybeSingle(),
+    supabase.from("profiles").select("full_name, avatar_url, created_at, timezone").maybeSingle(),
   ])
 
   if (profileResult.error) {

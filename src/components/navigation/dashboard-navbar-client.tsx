@@ -17,6 +17,7 @@ import { BrandMark } from "@/components/brand/brand-mark"
 import { SignOutButton } from "@/components/auth/sign-out-button"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { cn } from "@/lib/utils"
+import { useTaskAccount } from "@/components/tasks/task-cache-provider"
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -37,7 +38,10 @@ type DashboardNavbarClientProps = {
   initials: string
 }
 
-export function DashboardNavbarClient({ displayName, initials }: DashboardNavbarClientProps) {
+export function DashboardNavbarClient({ displayName:serverName, initials:serverInitials }: DashboardNavbarClientProps) {
+  const account=useTaskAccount()
+  const displayName=account.profileName??serverName
+  const initials=account.profileName===undefined?serverInitials:displayName[0]?.toUpperCase()||'ST'
   const pathname = usePathname()
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const visiblePendingHref = pendingHref === pathname ? null : pendingHref

@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { Pause, Play, RotateCcw, CheckCircle2, Coffee } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { useTaskAccount } from "@/components/tasks/task-cache-provider"
 import { DEFAULT_BREAK_MINUTES, DEFAULT_FOCUS_MINUTES } from "@/lib/pomodoro"
 import {
   advancePomodoroSnapshot,
@@ -11,7 +12,10 @@ import {
   derivePomodoroSnapshot,
   formatPomodoroClock,
   getPomodoroTitle,
-  parsePomodoroSnapshot,
+  parseAccountPomodoroSnapshot,
+  getPomodoroTimerStorageKey,
+  saveCompletedPomodoroSnapshot,
+  reconcilePomodoroSnapshots,
   pausePomodoroSnapshot,
   POMODORO_TIMER_STORAGE_KEY,
   startPomodoroSnapshot,
@@ -20,31 +24,41 @@ import {
 } from "@/lib/pomodoro-timer-state"
 
 type PomodoroTimerProps = {
+  userId: string
   focusMinutes?: number
   breakMinutes?: number
-  onCompleteSession: (formData: FormData) => Promise<void>
+  onCompleteSession: (formData: FormData) => Promise<{ accountChanged: boolean }>
 }
 
 export function PomodoroTimer({
+  userId,
   focusMinutes = DEFAULT_FOCUS_MINUTES,
   breakMinutes = DEFAULT_BREAK_MINUTES,
   onCompleteSession,
 }: PomodoroTimerProps) {
+  const {isCurrent,sessionLost}=useTaskAccount()
   const [snapshot, setSnapshot] = useState<PomodoroTimerSnapshot>(() =>
     createIdlePomodoroSnapshot("focus", focusMinutes * 60, createCompletionId()),
   )
   const [hasHydrated, setHasHydrated] = useState(false)
   const [announcement, setAnnouncement] = useState("")
+  const [failedCompletionId, setFailedCompletionId] = useState<string | null>(null)
+  const [storageError, setStorageError] = useState(false)
+  const [restoreWarning, setRestoreWarning] = useState("")
   const [isPending, startTransition] = useTransition()
   const lastTitleRef = useRef<string | null>(null)
   const originalTitleRef = useRef<string | null>(null)
-  const handledCompletionIdsRef = useRef(new Set<string>())
+  const attemptedCompletionIdsRef = useRef(new Set<string>())
+  const inFlightRef = useRef<string | null>(null)
+  const storageKey = getPomodoroTimerStorageKey(userId)
 
   const mode = snapshot.mode
   const isRunning = snapshot.status === "running"
   const secondsLeft = snapshot.remainingSeconds
   const initialSeconds = snapshot.durationSeconds
   const sessionsCompleted = snapshot.sessionsCompleted
+  const pendingFocus = mode === "focus" && snapshot.status === "completed"
+  const saveFailed = pendingFocus && failedCompletionId === snapshot.completionId
 
   const progress = useMemo(() => {
     if (initialSeconds <= 0) {
@@ -55,49 +69,62 @@ export function PomodoroTimer({
   }, [initialSeconds, secondsLeft])
 
   useEffect(() => {
-    const stored = parsePomodoroSnapshot(window.localStorage.getItem(POMODORO_TIMER_STORAGE_KEY))
-
-    window.queueMicrotask(() => {
-      if (stored) {
-        setSnapshot(derivePomodoroSnapshot(stored))
-      } else {
-        window.localStorage.removeItem(POMODORO_TIMER_STORAGE_KEY)
+    let stored: PomodoroTimerSnapshot | null = null
+    let warning = ""
+    let unavailable = false
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      stored = parseAccountPomodoroSnapshot(raw, userId)
+      if (raw && !stored) warning = "The stored timer could not be restored. Start a new session."
+      else if (!stored && window.localStorage.getItem(POMODORO_TIMER_STORAGE_KEY)) {
+        warning = "An older timer is not linked to this account and was not restored. Start a new session."
       }
-
+    } catch { unavailable = true }
+    window.queueMicrotask(() => {
+      if (stored) setSnapshot(derivePomodoroSnapshot(stored))
+      setRestoreWarning(warning)
+      setStorageError(unavailable)
       setHasHydrated(true)
     })
-  }, [])
+  }, [storageKey, userId])
 
   useEffect(() => {
     if (!hasHydrated) {
       return
     }
 
-    if (snapshot.status === "idle") {
-      window.localStorage.removeItem(POMODORO_TIMER_STORAGE_KEY)
-    } else {
-      window.localStorage.setItem(POMODORO_TIMER_STORAGE_KEY, JSON.stringify(snapshot))
-    }
-  }, [hasHydrated, snapshot])
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      const stored = parseAccountPomodoroSnapshot(raw, userId)
+      const safe = stored ? reconcilePomodoroSnapshots(derivePomodoroSnapshot(stored), snapshot) : snapshot
+      if (safe !== snapshot && JSON.stringify(safe) !== JSON.stringify(snapshot)) {
+        window.queueMicrotask(() => setSnapshot(safe))
+        return
+      }
+      // The deadline is durable; ticking remainingSeconds needs no storage write.
+      if (stored?.status === "running" && snapshot.status === "running" && stored.completionId === snapshot.completionId && stored.endTime === snapshot.endTime && stored.sessionsCompleted === snapshot.sessionsCompleted) return
+      const next = JSON.stringify({ userId, snapshot })
+      if (raw !== next) window.localStorage.setItem(storageKey, next)
+    } catch { window.queueMicrotask(() => setStorageError(true)) }
+  }, [hasHydrated, snapshot, storageKey, userId])
 
   useEffect(() => {
     function syncFromStorage(event: StorageEvent) {
-      if (event.key !== POMODORO_TIMER_STORAGE_KEY) {
+      if (event.key !== storageKey) {
         return
       }
 
-      const stored = parsePomodoroSnapshot(event.newValue)
-      setSnapshot(
-        stored
-          ? derivePomodoroSnapshot(stored)
-          : createIdlePomodoroSnapshot("focus", focusMinutes * 60, createCompletionId()),
-      )
+      // Read the latest value: queued storage events can describe superseded writes.
+      try {
+        const stored = parseAccountPomodoroSnapshot(window.localStorage.getItem(storageKey), userId)
+        if (stored) setSnapshot((current) => reconcilePomodoroSnapshots(current, derivePomodoroSnapshot(stored)))
+      } catch { setStorageError(true) }
     }
 
     window.addEventListener("storage", syncFromStorage)
 
     return () => window.removeEventListener("storage", syncFromStorage)
-  }, [focusMinutes])
+  }, [focusMinutes, storageKey, userId])
 
   useEffect(() => {
     originalTitleRef.current = document.title
@@ -143,52 +170,42 @@ export function PomodoroTimer({
     }
   }, [])
 
-  useEffect(() => {
-    if (
-      snapshot.status !== "completed" ||
-      snapshot.completionHandled ||
-      handledCompletionIdsRef.current.has(snapshot.completionId)
-    ) {
-      return
-    }
-
-    handledCompletionIdsRef.current.add(snapshot.completionId)
-
-    const completedSeconds = snapshot.durationSeconds
-    const completedAt = snapshot.completedAt ?? Date.now()
-    const startedAt = snapshot.startedAt ?? new Date(completedAt - completedSeconds * 1000).toISOString()
-    const endedAt = new Date(completedAt).toISOString()
-    const completionId = snapshot.completionId
-    const nextMode: PomodoroMode = mode === "focus" ? "break" : "focus"
-
-    window.queueMicrotask(() => {
-      setSnapshot((current) => ({ ...current, completionHandled: true }))
+  const submitCompletion = useCallback((completed: PomodoroTimerSnapshot) => {
+    if (inFlightRef.current) return
+    inFlightRef.current = completed.completionId
+    setFailedCompletionId(null)
+    setAnnouncement("Saving focus session...")
+    startTransition(async () => {
+      try {
+        const next = await saveCompletedPomodoroSnapshot(completed, async(form)=>{
+          const result=await onCompleteSession(form)
+          if(!isCurrent())throw new Error("Account session changed")
+          if(result.accountChanged){sessionLost();throw new Error("Account session changed")}
+        }, breakMinutes * 60)
+        if(!isCurrent())return
+        setSnapshot((current) => current.mode === "focus" && current.status === "completed" && current.completionId === completed.completionId ? next : current)
+        setAnnouncement("Focus session saved. Break ready.")
+      } catch {
+        if(!isCurrent())return
+        setFailedCompletionId(completed.completionId)
+        setAnnouncement("Unable to save this focus session. Try again.")
+      } finally { inFlightRef.current = null }
     })
+  }, [onCompleteSession, breakMinutes, isCurrent, sessionLost])
 
-    if (mode === "focus") {
-      const formData = new FormData()
-      formData.set("duration", String(completedSeconds))
-      formData.set("completed", "true")
-      formData.set("started_at", startedAt)
-      formData.set("ended_at", endedAt)
-      formData.set("completion_id", completionId)
-
-      startTransition(async () => {
-        await onCompleteSession(formData)
-        setSnapshot((current) =>
-          advancePomodoroSnapshot(current, "break", breakMinutes * 60, createCompletionId(), current.sessionsCompleted + 1),
-        )
-      })
-    } else {
-      window.queueMicrotask(() => {
-        setSnapshot((current) => advancePomodoroSnapshot(current, "focus", focusMinutes * 60, createCompletionId()))
-      })
-    }
-
-    setAnnouncement(
-      `${mode === "focus" ? "Focus" : "Break"} session completed. ${nextMode === "focus" ? "Focus" : "Break"} started.`,
-    )
-  }, [snapshot, mode, focusMinutes, breakMinutes, onCompleteSession, startTransition])
+  useEffect(() => {
+    const attemptKey = `${snapshot.mode}:${snapshot.completionId}`
+    if (!hasHydrated || snapshot.status !== "completed" || attemptedCompletionIdsRef.current.has(attemptKey)) return
+    if (snapshot.mode === "focus" && inFlightRef.current) return
+    attemptedCompletionIdsRef.current.add(attemptKey)
+    window.queueMicrotask(() => {
+      if (snapshot.mode === "focus") submitCompletion(snapshot)
+      else {
+        setSnapshot((current) => current.completionId === snapshot.completionId ? advancePomodoroSnapshot(current, "focus", focusMinutes * 60, createCompletionId()) : current)
+        setAnnouncement("Break complete. Focus ready.")
+      }
+    })
+  }, [hasHydrated, snapshot, focusMinutes, submitCompletion, isPending])
 
   const previousDurationsRef = useRef({ focusMinutes, breakMinutes })
 
@@ -250,6 +267,7 @@ export function PomodoroTimer({
           variant={mode === "focus" ? "default" : "outline"}
           size="sm"
           onClick={() => toggleMode("focus")}
+          disabled={!hasHydrated || pendingFocus}
         >
           <CheckCircle2 className="size-4" />
           Focus
@@ -258,6 +276,7 @@ export function PomodoroTimer({
           variant={mode === "break" ? "default" : "outline"}
           size="sm"
           onClick={() => toggleMode("break")}
+          disabled={!hasHydrated || pendingFocus}
         >
           <Coffee className="size-4" />
           Break
@@ -282,21 +301,29 @@ export function PomodoroTimer({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Button onClick={toggleRunning} size="lg" className="min-w-32">
+          <Button onClick={toggleRunning} disabled={!hasHydrated || pendingFocus} size="lg" className="min-w-32">
             {isRunning ? <Pause className="size-4" /> : <Play className="size-4" />}
             {isRunning ? "Pause" : "Start"}
           </Button>
-          <Button variant="outline" onClick={resetTimer} size="lg" className="min-w-32">
+          <Button variant="outline" onClick={resetTimer} disabled={!hasHydrated || pendingFocus} size="lg" className="min-w-32">
             <RotateCcw className="size-4" />
             Reset
           </Button>
         </div>
 
         <p className="mt-3 text-center text-sm text-muted-foreground">
-          {isPending
+          {pendingFocus && isPending
             ? "Saving session..."
-            : `${sessionsCompleted} focus session${sessionsCompleted === 1 ? "" : "s"} completed this visit`}
+            : `${sessionsCompleted} focus session${sessionsCompleted === 1 ? "" : "s"} saved`}
         </p>
+        {saveFailed ? (
+          <div className="mt-3 space-y-3 text-center">
+            <p role="alert" className="text-sm text-destructive">Unable to save this focus session. Try again.</p>
+            <Button disabled={isPending} onClick={() => submitCompletion(snapshot)}>Retry save</Button>
+          </div>
+        ) : null}
+        {storageError ? <p role="alert" className="mt-3 text-sm text-destructive">This device cannot keep the timer between visits. Keep this page open until your session is saved.</p> : null}
+        {restoreWarning ? <p role="status" className="mt-3 text-sm text-muted-foreground">{restoreWarning}</p> : null}
       </div>
     </div>
   )

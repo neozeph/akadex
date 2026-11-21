@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 
@@ -14,7 +15,7 @@ import { formatFocusDuration, formatFocusMinutes } from "@/lib/pomodoro"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
 
 import { getAnalyticsData } from "./data"
-import { getActivityAnalyticsData, parseAnalyticsRange } from "./activity-data"
+import { getActivityAnalyticsData, parseAnalyticsRange, type AnalyticsRange } from "./activity-data"
 
 export default async function AnalyticsPage({
   searchParams,
@@ -30,22 +31,18 @@ export default async function AnalyticsPage({
   const resolvedSearchParams = await searchParams
   const range = parseAnalyticsRange(resolvedSearchParams.range)
 
-  // Academic analytics never depend on `range` — fetched independently and
-  // in parallel with activity analytics, not sequentially.
-  const [analytics, activity] = await Promise.all([
-    getAnalyticsData(user.id),
-    getActivityAnalyticsData(user.id, range),
-  ])
+  return <div className="space-y-6">
+    <PageHeader title="Analytics" description="Understand your academic and study patterns." />
+    <Suspense fallback={<p role="status">Loading academic performance...</p>}><AcademicSection userId={user.id}/></Suspense>
+    <Suspense key={range} fallback={<p role="status">Loading study activity...</p>}><ActivitySection userId={user.id} range={range}/></Suspense>
+  </div>
+}
 
-  const hasSemesters = analytics.semesterCount > 0
-  const hasGrades = analytics.gradedCount > 0
-  const hasAnyTaskEver = activity.totalTaskCount > 0
-  const rangeLabel = range === "7d" ? "7 days" : range === "30d" ? "30 days" : "all time"
-
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Analytics" description="Understand your academic and study patterns." />
-
+async function AcademicSection({userId}:{userId:string}){
+  let analytics:Awaited<ReturnType<typeof getAnalyticsData>>
+  try{analytics=await getAnalyticsData(userId)}catch{return <SectionFailure name="academic performance"/>}
+  const hasSemesters=analytics.semesterCount>0,hasGrades=analytics.gradedCount>0
+  return <>
       {!hasSemesters ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
           <p className="text-sm font-medium text-foreground">No academic data yet.</p>
@@ -153,9 +150,15 @@ export default async function AnalyticsPage({
         </>
       )}
 
-      {/* Study Activity is deliberately outside the hasSemesters gate above —
-          tasks and Pomodoro are independent of academic data and should
-          still show even for an account with no semesters yet. */}
+  </>
+}
+
+async function ActivitySection({userId,range}:{userId:string;range:AnalyticsRange}){
+  let activity:Awaited<ReturnType<typeof getActivityAnalyticsData>>
+  try{activity=await getActivityAnalyticsData(userId,range)}catch{return <SectionFailure name="study activity" range={range}/>}
+  const hasAnyTaskEver=activity.totalTaskCount>0
+  const rangeLabel=range==="7d"?"7 days":range==="30d"?"30 days":"all time"
+  return (
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Study Activity</h2>
@@ -231,6 +234,12 @@ export default async function AnalyticsPage({
           </div>
         </div>
       </section>
-    </div>
   )
+}
+
+function SectionFailure({name,range}:{name:string;range?:AnalyticsRange}){
+  return <section role="alert" className="space-y-3 rounded-xl border border-destructive/30 p-5">
+    <p>Unable to load {name}.</p>
+    <Button asChild variant="outline"><a href={range?`/analytics?range=${range}`:"/analytics"}>Retry {name}</a></Button>
+  </section>
 }

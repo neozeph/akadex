@@ -1,7 +1,7 @@
 "use server"
 
 import { cookies } from "next/headers"
-import { revalidatePath } from "next/cache"
+import { revalidateTaskViews } from "@/lib/mutation-cache"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthenticatedUser } from "@/lib/supabase/session"
@@ -9,11 +9,9 @@ import { throwPublicError } from "@/lib/server-errors"
 import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, parseTaskTags } from "@/lib/tasks"
 import {
   RECURRENCE_OPTIONS,
-  getNextOccurrenceDate,
   type RecurrenceOption,
   type TaskRecurrenceType,
 } from "@/lib/recurrence"
-import { toISODate } from "@/lib/dates"
 
 async function getAuthedSupabase() {
   const cookieStore = await cookies()
@@ -65,7 +63,7 @@ async function getOwnedTaskStatus(
 ) {
   const { data, error } = await supabase
     .from("tasks")
-    .select("status")
+    .select("status, series_id, due_date")
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle()
@@ -74,7 +72,7 @@ async function getOwnedTaskStatus(
     throw new Error("Task not found")
   }
 
-  return data.status as string
+  return data
 }
 
 type OwnedTaskCompletionState = {
@@ -226,11 +224,7 @@ export async function createTask(formData: FormData) {
       throwPublicError("tasks.createRecurringTask", taskError, "Unable to create the recurring task. Please try again.")
     }
 
-    revalidatePath("/tasks")
-    revalidatePath("/dashboard")
-    revalidatePath("/semesters/[semesterId]", "page")
-    revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-    revalidatePath("/analytics")
+    await revalidateTaskViews()
     return
   }
 
@@ -253,11 +247,7 @@ export async function createTask(formData: FormData) {
     throwPublicError("tasks.create", error, "Unable to create the task. Please try again.")
   }
 
-  revalidatePath("/tasks")
-  revalidatePath("/dashboard")
-  revalidatePath("/semesters/[semesterId]", "page")
-  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-  revalidatePath("/analytics")
+  await revalidateTaskViews()
 }
 
 export async function updateTask(formData: FormData) {
@@ -276,7 +266,13 @@ export async function updateTask(formData: FormData) {
     throw new Error("Task title is required.")
   }
 
-  const currentStatus = await getOwnedTaskStatus(supabase, taskId, userId)
+  const currentTask = await getOwnedTaskStatus(supabase, taskId, userId)
+  const currentStatus = currentTask.status
+  const occurrenceSnapshot = String(formData.get("due_date_snapshot") ?? "")
+  if (currentTask.series_id && occurrenceSnapshot !== currentTask.due_date) throw new Error("This occurrence changed. Reload the task before editing it.")
+  if (currentTask.series_id && status === "done" && currentStatus !== "done") {
+    throw new Error("Use the task checkbox to complete a recurring occurrence and save its history.")
+  }
   const subjectId = await resolveSubjectId(supabase, userId, String(formData.get("subject_id") ?? ""))
 
   // Only a real todo/in_progress <-> done transition touches completed_at.
@@ -292,7 +288,7 @@ export async function updateTask(formData: FormData) {
   // Editing an occurrence only ever touches this one `tasks` row — it never
   // writes back to task_series, so historical/other occurrences in the same
   // series are untouched by design (no "edit the whole series" path exists).
-  const { error } = await supabase
+  let mutation = supabase
     .from("tasks")
     .update({
       title,
@@ -306,16 +302,13 @@ export async function updateTask(formData: FormData) {
     })
     .eq("id", taskId)
     .eq("user_id", userId)
-
-  if (error) {
-    throwPublicError("tasks.update", error, "Unable to update the task. Please try again.")
+  if (currentTask.series_id) mutation = mutation.eq("due_date", occurrenceSnapshot)
+  const { data: updated, error } = await mutation.select("id")
+  if (error || !updated?.length) {
+    throwPublicError("tasks.update", error ?? new Error("Stale occurrence"), "Unable to update the task. Reload it and try again.")
   }
 
-  revalidatePath("/tasks")
-  revalidatePath("/dashboard")
-  revalidatePath("/semesters/[semesterId]", "page")
-  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-  revalidatePath("/analytics")
+  await revalidateTaskViews()
 }
 
 export async function deleteTask(formData: FormData) {
@@ -335,14 +328,10 @@ export async function deleteTask(formData: FormData) {
     throwPublicError("tasks.delete", error, "Unable to delete the task. Please try again.")
   }
 
-  revalidatePath("/tasks")
-  revalidatePath("/dashboard")
-  revalidatePath("/semesters/[semesterId]", "page")
-  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-  revalidatePath("/analytics")
+  await revalidateTaskViews()
 }
 
-export async function setTaskCompletion(formData: FormData) {
+async function executeTaskCompletion(formData: FormData) {
   const supabase = await getAuthedSupabase()
   const userId = await getAuthedUserId()
   const taskId = String(formData.get("task_id") ?? "")
@@ -358,39 +347,14 @@ export async function setTaskCompletion(formData: FormData) {
   const task = await getOwnedTaskCompletionState(supabase, taskId, userId)
 
   if (completed && task.series_id && task.series?.active) {
-    if (task.status === "done" || (dueDateSnapshot && task.due_date !== dueDateSnapshot)) {
-      revalidatePath("/tasks")
-      revalidatePath("/dashboard")
-      revalidatePath("/semesters/[semesterId]", "page")
-      revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-      revalidatePath("/analytics")
-      return
-    }
-
-    const today = toISODate(new Date())
-    const nextDueDate = getNextOccurrenceDate(task.series.recurrence_type, task.series.start_date, today)
-
-    const { error } = await supabase
-      .from("tasks")
-      .update({
-        status: "todo",
-        completed_at: null,
-        due_date: nextDueDate,
-      })
-      .eq("id", taskId)
-      .eq("user_id", userId)
-      .eq("status", task.status)
-      .eq("due_date", task.due_date)
+    if (!dueDateSnapshot) throw new Error("Reload this task before completing its occurrence.")
+    const { error } = await supabase.rpc("complete_recurring_task", { p_task_id: taskId, p_occurrence_date: dueDateSnapshot })
 
     if (error) {
       throwPublicError("tasks.rollRecurringCompletion", error, "Unable to update the task status. Please try again.")
     }
 
-    revalidatePath("/tasks")
-    revalidatePath("/dashboard")
-    revalidatePath("/semesters/[semesterId]", "page")
-    revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-    revalidatePath("/analytics")
+    await revalidateTaskViews()
     return
   }
 
@@ -411,9 +375,35 @@ export async function setTaskCompletion(formData: FormData) {
     throwPublicError("tasks.setCompletion", error, "Unable to update the task status. Please try again.")
   }
 
-  revalidatePath("/tasks")
-  revalidatePath("/dashboard")
-  revalidatePath("/semesters/[semesterId]", "page")
-  revalidatePath("/semesters/[semesterId]/subjects/[subjectId]", "page")
-  revalidatePath("/analytics")
+  await revalidateTaskViews()
+}
+
+export async function setTaskCompletion(formData: FormData) { await executeTaskCompletion(formData) }
+
+async function matchesCachedAccount(expectedUserId: string) {
+  return (await getAuthenticatedUser())?.id === expectedUserId
+}
+export async function completeCachedTask(expectedUserId: string, formData: FormData) {
+  if (!(await matchesCachedAccount(expectedUserId))) return { accountChanged: true as const }
+  await executeTaskCompletion(formData)
+  const supabase = await getAuthedSupabase()
+  const { data, error } = await supabase.from("tasks").select("id, status, due_date")
+    .eq("id", String(formData.get("task_id") ?? "")).eq("user_id", expectedUserId).maybeSingle()
+  if (error) throwPublicError("tasks.confirmCompletion", error, "Unable to confirm completion. Please retry.")
+  return { accountChanged: false as const, task: data }
+}
+export async function createCachedTask(expectedUserId: string, formData: FormData) {
+  if (!(await matchesCachedAccount(expectedUserId))) return { accountChanged: true as const }
+  await createTask(formData)
+  return { accountChanged: false as const }
+}
+export async function updateCachedTask(expectedUserId: string, formData: FormData) {
+  if (!(await matchesCachedAccount(expectedUserId))) return { accountChanged: true as const }
+  await updateTask(formData)
+  return { accountChanged: false as const }
+}
+export async function deleteCachedTask(expectedUserId: string, formData: FormData) {
+  if (!(await matchesCachedAccount(expectedUserId))) return { accountChanged: true as const }
+  await deleteTask(formData)
+  return { accountChanged: false as const }
 }
